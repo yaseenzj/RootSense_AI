@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { 
   Activity, BookOpen, Settings, Mic, MessageSquare, X, Send, Video, Upload,
   RefreshCw, CheckCircle2, AlertCircle, ArrowRight, BrainCircuit, ShieldCheck,
   BarChart3, Brain, Info, Target, Download, ExternalLink, Printer, Layers, UploadCloud, Loader2, Clock, ArrowLeft,
-  User, Database, FileText, Zap, Sparkles, Camera, History, Microscope, GraduationCap, Bell, Search, Filter, Cpu, Globe, Sliders
+  User, Database, FileText, Zap, Sparkles, Camera, History, Microscope, GraduationCap, Bell, Search, Filter, Cpu, Globe, Sliders, ImagePlus
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,8 +53,9 @@ const pastRecords = [
 // --- Core Application Wrapper ---
 
 export default function RootSenseAI() {
-  const [view, setView] = useState('landing'); // landing, simulator, lab, quests, analytics, records, scheduler, inventory, settings, config
+  const [view, setView] = useState('landing'); 
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [gpuInfo, setGpuInfo] = useState("Detecting...");
   const [userStats, setUserStats] = useState({
     xp: 2450,
@@ -109,75 +111,101 @@ export default function RootSenseAI() {
   }
 
   return (
-    <div className="flex h-screen bg-[#020617] text-slate-100 font-sans selection:bg-blue-500/30 overflow-hidden">
+    <div className="flex h-screen bg-[#020617] text-slate-100 font-sans selection:bg-blue-500/30 overflow-hidden relative">
       {/* Sidebar Navigation */}
-      <motion.aside 
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="w-72 bg-slate-900/40 border-r border-slate-800 p-8 flex flex-col z-30"
-      >
-        <div className="flex items-center gap-3 mb-12">
-          <div className="bg-blue-600 p-2 rounded-2xl shadow-2xl shadow-blue-600/20">
-            <Microscope size={24} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tighter">RootSense<span className="text-blue-500">AI</span></h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Medical Lab v2.4</p>
-          </div>
-        </div>
+      <AnimatePresence>
+        {(isMobileMenuOpen || typeof window !== 'undefined' && window.innerWidth > 1024) && (
+          <motion.aside 
+            initial={{ x: -300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -300, opacity: 0 }}
+            className={`fixed lg:relative w-72 h-full bg-slate-900 border-r border-slate-800 p-8 flex flex-col z-50 lg:z-30 transition-all duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+          >
+            <div className="flex items-center justify-between mb-12">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 p-2 rounded-2xl shadow-2xl shadow-blue-600/20">
+                  <Microscope size={24} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-black tracking-tighter text-white">RootSense<span className="text-blue-500">AI</span></h1>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Medical Lab v2.4</p>
+                </div>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
 
-        <nav className="flex flex-col gap-1.5 flex-1">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-4 opacity-70">Education</p>
-          <SidebarLink active={view === 'simulator'} onClick={() => setView('simulator')} icon={GraduationCap} label="Simulation Lab" />
-          <SidebarLink active={view === 'quests'} onClick={() => setView('quests')} icon={Target} label="Quest Board" />
-          <SidebarLink active={view === 'analytics'} onClick={() => setView('analytics')} icon={BarChart3} label="My Progress" />
-          
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-2 px-4 opacity-70">Diagnostics</p>
-          <SidebarLink active={view === 'lab'} onClick={() => setView('lab')} icon={Zap} label="Live Learning" />
-          <SidebarLink active={view === 'records'} onClick={() => setView('records')} icon={History} label="Case Records" />
-          
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-2 px-4 opacity-70">Clinic Management</p>
-          <SidebarLink active={view === 'scheduler'} onClick={() => setView('scheduler')} icon={Clock} label="Scheduler" />
-          <SidebarLink active={view === 'inventory'} onClick={() => setView('inventory')} icon={Database} label="Inventory" />
-          
-          <div className="mt-auto pt-8 border-t border-slate-800 space-y-1">
-            <SidebarLink active={view === 'settings'} onClick={() => setView('settings')} icon={Settings} label="Preferences" />
-            <SidebarLink active={view === 'config'} onClick={() => setView('config')} icon={Cpu} label="System Config" />
-          </div>
-        </nav>
-      </motion.aside>
+            <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto scrollbar-hide">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-4 opacity-70">Education</p>
+              <SidebarLink active={view === 'simulator'} onClick={() => { setView('simulator'); setIsMobileMenuOpen(false); }} icon={GraduationCap} label="Simulation Lab" />
+              <SidebarLink active={view === 'quests'} onClick={() => { setView('quests'); setIsMobileMenuOpen(false); }} icon={Target} label="Quest Board" />
+              <SidebarLink active={view === 'analytics'} onClick={() => { setView('analytics'); setIsMobileMenuOpen(false); }} icon={BarChart3} label="My Progress" />
+              
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-2 px-4 opacity-70">Diagnostics</p>
+              <SidebarLink active={view === 'lab'} onClick={() => { setView('lab'); setIsMobileMenuOpen(false); }} icon={Zap} label="Live Learning" />
+              <SidebarLink active={view === 'records'} onClick={() => { setView('records'); setIsMobileMenuOpen(false); }} icon={History} label="Case Records" />
+              
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-2 px-4 opacity-70">Clinic Management</p>
+              <SidebarLink active={view === 'scheduler'} onClick={() => { setView('scheduler'); setIsMobileMenuOpen(false); }} icon={Clock} label="Scheduler" />
+              <SidebarLink active={view === 'inventory'} onClick={() => { setView('inventory'); setIsMobileMenuOpen(false); }} icon={Database} label="Inventory" />
+              
+              <div className="mt-auto pt-8 border-t border-slate-800 space-y-1">
+                <SidebarLink active={view === 'settings'} onClick={() => { setView('settings'); setIsMobileMenuOpen(false); }} icon={Settings} label="Preferences" />
+                <SidebarLink active={view === 'config'} onClick={() => { setView('config'); setIsMobileMenuOpen(false); }} icon={Cpu} label="System Config" />
+              </div>
+            </nav>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Overlay for mobile sidebar */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
       {/* Main Workspace */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 border-b border-slate-800 bg-slate-950/50 backdrop-blur-xl flex items-center justify-between px-10 sticky top-0 z-20">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
+        <header className="h-20 border-b border-slate-800 bg-slate-950/50 backdrop-blur-xl flex items-center justify-between px-4 md:px-10 sticky top-0 z-20 shrink-0">
           <div className="flex items-center gap-4">
-            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
-              {view === 'simulator' && "Simulator / Clinical Training"}
-              {view === 'quests' && "Assignments / Quest Board"}
-              {view === 'lab' && "Live Lab / Real-time Detection"}
-              {view === 'analytics' && "Student Metrics / Growth"}
-              {view === 'records' && "Archive / Patient Records"}
-              {view === 'scheduler' && "Appointment / Schedule Management"}
-              {view === 'inventory' && "Supplies / Stock Control"}
-              {view === 'settings' && "Account / UI Settings"}
-              {view === 'config' && "Model / Hardware Config"}
-            </h2>
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-2 hover:bg-slate-800 rounded-xl transition-colors"
+            >
+              <Sliders size={20} className="text-slate-300" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-300 truncate max-w-[150px] sm:max-w-none">
+                {view === 'simulator' && "Simulator"}
+                {view === 'quests' && "Quests"}
+                {view === 'lab' && "Live Lab"}
+                {view === 'analytics' && "Progress"}
+                {view === 'records' && "Records"}
+                {view === 'scheduler' && "Scheduler"}
+                {view === 'inventory' && "Inventory"}
+                {view === 'settings' && "Settings"}
+                {view === 'config' && "System"}
+              </h2>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-             <div className="flex flex-col items-end mr-4">
+          <div className="flex items-center gap-3 sm:gap-6">
+             <div className="hidden md:flex flex-col items-end mr-2">
                 <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Level {userStats.level}</span>
                 <span className="text-xs font-bold text-slate-400">{userStats.xp} XP</span>
              </div>
-             <div className="relative group">
-                <Bell size={18} className="text-slate-400 group-hover:text-white transition-colors cursor-pointer" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full border-2 border-[#020617]" />
+             <div className="relative group p-2 cursor-pointer">
+                <Bell size={18} className="text-slate-400 group-hover:text-white transition-colors" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-[#020617]" />
              </div>
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 shadow-lg font-black text-xs cursor-pointer">YA</div>
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 shadow-lg font-black text-[10px] sm:text-xs cursor-pointer text-white">YA</div>
           </div>
         </header>
 
-        <main className="flex-1 p-10 overflow-y-auto overflow-x-hidden relative">
+        <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto overflow-x-hidden relative scrollbar-hide">
           <AnimatePresence mode="wait">
             {view === 'simulator' && <SimulationPage key="sim" onEarnXP={(amt) => setUserStats(s => ({ ...s, xp: s.xp + amt }))} />}
             {view === 'quests' && <QuestsPage key="quests" stats={userStats} />}
@@ -193,11 +221,16 @@ export default function RootSenseAI() {
       </div>
 
       {/* Floating Chat FAB */}
-      <div className="fixed bottom-10 right-10 z-50">
+      <div className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-50">
         <AnimatePresence>
           {isChatOpen && (
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}>
-              <ChatInterface onClose={() => setIsChatOpen(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="absolute bottom-20 right-0 w-[calc(100vw-2rem)] sm:w-[440px] max-w-[440px]"
+            >
+              <ChatInterface onClose={() => setIsChatOpen(false)} currentView={view} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -205,9 +238,9 @@ export default function RootSenseAI() {
           whileHover={{ scale: 1.05 }} 
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`h-16 w-16 rounded-[2rem] shadow-2xl transition-all duration-500 flex items-center justify-center ${isChatOpen ? 'bg-red-500 rotate-90' : 'bg-blue-600'}`}
+          className={`h-14 w-14 sm:h-16 sm:w-16 rounded-2xl sm:rounded-[2rem] shadow-2xl transition-all duration-500 flex items-center justify-center text-white ${isChatOpen ? 'bg-red-500 rotate-90' : 'bg-blue-600'}`}
         >
-          {isChatOpen ? <X size={28} /> : <MessageSquare size={28} />}
+          {isChatOpen ? <X size={24} /> : <MessageSquare size={24} />}
         </motion.button>
       </div>
     </div>
@@ -273,21 +306,21 @@ function SimulationPage({ onEarnXP }) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h3 className="text-4xl font-black tracking-tighter mb-2">Training Modules</h3>
-          <p className="text-slate-300 font-medium">Select a case to begin diagnostic training.</p>
+          <h3 className="text-3xl sm:text-4xl font-black tracking-tighter mb-2 text-white">Training Modules</h3>
+          <p className="text-slate-300 font-medium text-sm sm:text-base">Select a case to begin diagnostic training.</p>
         </div>
-        <div className="flex gap-4">
-           <div className="relative">
+        <div className="flex w-full sm:w-auto gap-4">
+           <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <Input placeholder="Filter cases..." className="pl-12 rounded-2xl bg-slate-900 border-slate-800 w-64 text-slate-200 placeholder:text-slate-500" />
+              <Input placeholder="Filter cases..." className="pl-12 rounded-2xl bg-slate-900 border-slate-800 w-full sm:w-64 text-slate-200" />
            </div>
            <Button variant="outline" className="rounded-2xl border-slate-800 text-slate-300 hover:text-white"><Filter size={16} className="mr-2" /> Sort</Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
         {caseLibrary.map((c) => (
           <motion.div key={c.id} whileHover={{ y: -8 }}>
             <Card onClick={() => setSelectedCase(c)} className="group cursor-pointer bg-slate-900/40 border-slate-800 hover:border-blue-500/50 rounded-[2rem] overflow-hidden shadow-2xl">
@@ -329,14 +362,14 @@ function CaseAnalysis({ caseData, onBack, onEarnXP }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-8">
-        <div className="flex items-center gap-6">
-          <Button variant="outline" size="icon" onClick={onBack} className="rounded-2xl h-14 w-14 border-slate-800"><ArrowLeft size={20}/></Button>
-          <h3 className="text-3xl font-black tracking-tighter">{caseData.title}</h3>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-8 gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <Button variant="outline" size="icon" onClick={onBack} className="rounded-2xl h-12 w-12 sm:h-14 sm:w-14 border-slate-800"><ArrowLeft size={18}/></Button>
+          <h3 className="text-xl sm:text-3xl font-black tracking-tighter">{caseData.title}</h3>
         </div>
-        <div className="flex gap-4">
-          <Button variant="ghost" onClick={() => setMarked([])} className="text-slate-400 hover:text-white">Clear</Button>
-          <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 rounded-2xl h-14 px-10 font-black">Submit Diagnosis</Button>
+        <div className="flex w-full sm:w-auto gap-4">
+          <Button variant="ghost" onClick={() => setMarked([])} className="flex-1 sm:flex-none text-slate-400 hover:text-white">Clear</Button>
+          <Button onClick={handleSubmit} className="flex-[2] sm:flex-none bg-blue-600 hover:bg-blue-700 rounded-2xl h-12 sm:h-14 px-6 sm:px-10 font-black text-white">Submit Diagnosis</Button>
         </div>
       </div>
 
@@ -432,14 +465,14 @@ function QuestsPage({ stats }) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-       <div className="flex items-end justify-between border-b border-slate-800 pb-8">
+       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between border-b border-slate-800 pb-8 gap-6">
           <div>
-            <h3 className="text-4xl font-black tracking-tighter mb-2 text-white">Quest Board</h3>
-            <p className="text-slate-300 font-medium">Complete assignments to earn XP and unlock advanced modules.</p>
+            <h3 className="text-3xl sm:text-4xl font-black tracking-tighter mb-2 text-white">Quest Board</h3>
+            <p className="text-slate-300 font-medium text-sm sm:text-base">Complete assignments to earn XP and unlock advanced modules.</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right w-full sm:w-auto">
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Current Level</p>
-             <span className="text-5xl font-black text-blue-500">{stats.level}</span>
+             <span className="text-4xl sm:text-5xl font-black text-blue-500">{stats.level}</span>
           </div>
        </div>
 
@@ -633,15 +666,16 @@ function RecordsPage() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-      <div className="flex justify-between items-center mb-8">
-        <h3 className="text-4xl font-black tracking-tighter text-white">Archive Vault</h3>
-        <div className="flex gap-4">
-           <Input placeholder="Search records..." className="rounded-2xl bg-slate-900 border-slate-800 w-64" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <h3 className="text-3xl sm:text-4xl font-black tracking-tighter text-white">Archive Vault</h3>
+        <div className="flex w-full sm:w-auto gap-4">
+           <Input placeholder="Search records..." className="rounded-2xl bg-slate-900 border-slate-800 flex-1 sm:w-64" />
            <Button variant="outline" className="rounded-2xl border-slate-800 text-slate-300 hover:text-white"><Search size={16}/></Button>
         </div>
       </div>
-      <Card className="rounded-[2.5rem] bg-slate-900/40 border-slate-800 overflow-hidden">
-        <table className="w-full text-left">
+      <Card className="rounded-2xl sm:rounded-[2.5rem] bg-slate-900/40 border-slate-800 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[800px]">
           <thead className="bg-slate-950/50 border-b border-slate-800">
             <tr>
               <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Record ID</th>
@@ -669,6 +703,7 @@ function RecordsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
     </motion.div>
   );
@@ -689,16 +724,16 @@ function PatientRecordDetails({ record, onBack }) {
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800 p-12 rounded-[3rem] shadow-2xl">
+          <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800 p-8 sm:p-12 rounded-[3rem] shadow-2xl">
              <h4 className="text-xs font-black uppercase text-slate-500 mb-12 tracking-widest text-center">Interactive Dental Chart</h4>
              
-             <div className="space-y-16">
+             <div className="space-y-8 sm:space-y-16 overflow-x-auto pb-4 scrollbar-hide">
                 {/* Upper Arch */}
-                <div className="flex justify-center gap-2">
+                <div className="flex justify-start sm:justify-center gap-1 sm:gap-2 min-w-max px-4">
                    {upperTeeth.map(t => (
-                     <div key={t} className={`w-10 h-14 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help ${t === 3 ? 'bg-red-500/20 border-red-500/40' : 'bg-slate-800 border-slate-700'}`}>
-                        <span className="text-[8px] font-black text-slate-500">{t}</span>
-                        <div className={`w-3 h-3 rounded-full ${t === 3 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-slate-600'}`} />
+                     <div key={t} className={`w-8 h-10 sm:w-10 sm:h-14 rounded-lg sm:rounded-xl border flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help ${t === 3 ? 'bg-red-500/20 border-red-500/40' : 'bg-slate-800 border-slate-700'}`}>
+                        <span className="text-[7px] sm:text-[8px] font-black text-slate-500">{t}</span>
+                        <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${t === 3 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-slate-600'}`} />
                      </div>
                    ))}
                 </div>
@@ -708,17 +743,17 @@ function PatientRecordDetails({ record, onBack }) {
                 </div>
 
                 {/* Lower Arch */}
-                <div className="flex justify-center gap-2">
+                <div className="flex justify-start sm:justify-center gap-1 sm:gap-2 min-w-max px-4">
                    {lowerTeeth.map(t => (
-                     <div key={t} className="w-10 h-14 rounded-xl border bg-slate-800 border-slate-700 flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help">
-                        <div className="w-3 h-3 rounded-full bg-slate-600" />
-                        <span className="text-[8px] font-black text-slate-500">{t}</span>
+                     <div key={t} className="w-8 h-10 sm:w-10 sm:h-14 rounded-lg sm:rounded-xl border bg-slate-800 border-slate-700 flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-slate-600" />
+                        <span className="text-[7px] sm:text-[8px] font-black text-slate-500">{t}</span>
                      </div>
                    ))}
                 </div>
              </div>
 
-             <div className="mt-12 flex justify-center gap-6">
+             <div className="mt-12 flex flex-wrap justify-center gap-6">
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> <span className="text-[10px] font-bold text-slate-400">CARIES</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" /> <span className="text-[10px] font-bold text-slate-400">RESTORATION</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-600" /> <span className="text-[10px] font-bold text-slate-400">HEALTHY</span></div>
@@ -755,14 +790,14 @@ function SchedulerPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-       <div className="flex justify-between items-center">
-          <h3 className="text-4xl font-black text-white">Daily Schedule</h3>
-          <Button className="bg-blue-600 rounded-2xl h-14 px-8 font-bold">+ New Appointment</Button>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 sm:space-y-12">
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-3xl sm:text-4xl font-black text-white">Daily Schedule</h3>
+          <Button className="bg-blue-600 rounded-2xl h-14 px-8 font-bold w-full sm:w-auto">+ New Appointment</Button>
        </div>
        <div className="grid grid-cols-1 gap-6">
           {appointments.map((a, i) => (
-            <Card key={i} className="bg-slate-900/50 border-slate-800 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-blue-500/30 transition-all">
+            <Card key={i} className="bg-slate-900/50 border-slate-800 p-8 rounded-[2.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 group hover:border-blue-500/30 transition-all">
                <div className="flex items-center gap-8">
                   <div className="text-2xl font-black text-blue-500">{a.time}</div>
                   <div>
@@ -770,7 +805,7 @@ function SchedulerPage() {
                      <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">{a.procedure}</p>
                   </div>
                </div>
-               <div className="flex items-center gap-6">
+               <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
                   <Badge variant="outline" className={a.status === 'In-Progress' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-400'}>{a.status}</Badge>
                   <Button variant="ghost" className="text-slate-500 hover:text-white"><ExternalLink size={20} /></Button>
                </div>
@@ -790,12 +825,12 @@ function InventoryPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-       <div className="flex justify-between items-center">
-          <h3 className="text-4xl font-black text-white">Supplies & Inventory</h3>
-          <Button variant="outline" className="border-slate-800 rounded-2xl h-14 px-8 font-bold">Order Supplies</Button>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 sm:space-y-12">
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-3xl sm:text-4xl font-black text-white">Supplies</h3>
+          <Button variant="outline" className="w-full sm:w-auto border-slate-800 rounded-2xl h-12 sm:h-14 px-8 font-bold">Order Supplies</Button>
        </div>
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
           {stock.map((item, i) => (
             <Card key={i} className="bg-slate-900 border-slate-800 p-8 rounded-[3rem] shadow-2xl">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Stock Unit</p>
@@ -818,8 +853,8 @@ function InventoryPage() {
 
 function AnalyticsPage() {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 sm:space-y-12">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
         {[
           { label: "Total Diagnoses", value: "142", trend: "+12", icon: Activity, color: "text-white" },
           { label: "Precision Rate", value: "92.4%", trend: "+2.1", icon: ShieldCheck, color: "text-blue-500" },
@@ -979,55 +1014,139 @@ function ConfigPage({ gpuInfo }) {
 
 // --- Chat Interface ---
 
-function ChatInterface({ onClose }) {
+function ChatInterface({ onClose, currentView }) {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Diagnostic Assistant initialized. How can I assist you with this clinical session?' }
+    { role: 'ai', content: "initialized. **I am aware you are in the " + currentView.toUpperCase() + " module.** How can I assist with your clinical reasoning?" }
   ]);
   const [input, setInput] = useState('');
+  const [pendingImages, setPendingImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef(null);
+  const fileRef = useRef(null);
 
-  const send = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { role: 'user', text: input }]);
+  const getPredictedQuestions = (view) => {
+    switch(view) {
+      case 'simulator': return ["Explain class II cavity prep", "Common errors in #19 restoration", "Vitality test guidelines"];
+      case 'lab': return ["Differential for periapical radiolucency", "How to detect interproximal caries", "Identify cementoenamel junction"];
+      case 'records': return ["Patient history significance", "Archive search tips", "Exporting clinical reports"];
+      case 'scheduler': return ["Manage overlapping appointments", "Confirming surgical slots", "Procedure time estimates"];
+      case 'inventory': return ["Low stock alerts", "Ordering surgical supplies", "Material safety data"];
+      default: return ["Clinical reasoning help", "Board exam prep", "Pathology database"];
+    }
+  };
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const handleFiles = (files) => {
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => setPendingImages((p) => [...p, reader.result]);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const send = async (textOverride) => {
+    const text = textOverride || input;
+    if ((!text.trim() && pendingImages.length === 0) || loading) return;
+    
+    const userMsg = { 
+      role: 'user', 
+      content: text,
+      images: [...pendingImages]
+    };
+    
+    setMessages([...messages, userMsg]);
     setInput('');
+    setPendingImages([]);
+    setLoading(true);
+
+    // AI Response: Direct, Clinical, Short
     setTimeout(() => {
-      setMessages(prev => [...prev, { role: 'ai', text: 'The structural loss visible in the cervical region indicates potential abrasion. Clinical correlation is advised.' }]);
+      let response = "";
+      if (text.toLowerCase().includes("cavity")) response = "**Class II Prep**: Requires 1.5mm pulpal depth. Ensure divergent walls for retention. Correlate with radiograph for pulp proximity.";
+      else if (text.toLowerCase().includes("radiolucency")) response = "**Pathology**: Periapical radiolucency on #19. Differentials: Abscess (acute), Cyst (chronic), Granuloma. Verify with percussion.";
+      else response = "**Clinical Note**: Request processed. For this " + currentView + " case, prioritize primary diagnostic markers and patient history.";
+
+      setMessages(prev => [...prev, { role: 'ai', content: response }]);
+      setLoading(false);
     }, 1000);
   };
 
   return (
-    <Card className="absolute bottom-24 right-0 w-[420px] shadow-[0_50px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-[3rem] border-slate-800 bg-slate-950/90 backdrop-blur-3xl">
-      <div className="p-8 bg-blue-600 text-white flex items-center justify-between shadow-2xl">
-        <div className="flex items-center gap-4">
-          <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-            <Sparkles size={20} className="text-white" />
+    <Card className="w-full shadow-[0_50px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-[2rem] sm:rounded-[3rem] border-slate-800 bg-slate-950/95 backdrop-blur-3xl z-50">
+      <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between shadow-2xl">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="bg-white/20 p-1.5 sm:p-2 rounded-xl backdrop-blur-md border border-white/10">
+            <Sparkles size={18} className="text-white" />
           </div>
           <div>
-            <span className="font-black text-sm uppercase tracking-widest">Neural Assistant</span>
-            <div className="flex items-center gap-1.5 mt-0.5 opacity-70">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[10px] font-bold">Engine V2.4 Active</span>
+            <span className="font-black text-[9px] sm:text-[10px] uppercase tracking-widest">Neural Assistant</span>
+            <div className="flex items-center gap-1.5 mt-0.5 opacity-80">
+              <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-[8px] sm:text-[9px] font-bold">Clinical Aware Engine</span>
             </div>
           </div>
         </div>
-        <button onClick={onClose} className="hover:bg-white/10 p-2.5 rounded-2xl transition-all"><X size={24} /></button>
+        <button onClick={onClose} className="hover:bg-white/10 p-2 rounded-xl transition-all"><X size={18} /></button>
       </div>
-      <div className="h-[450px] overflow-y-auto p-8 flex flex-col gap-6 scrollbar-hide">
+
+      <div ref={scrollRef} className="h-[300px] sm:h-[400px] overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 scrollbar-hide bg-[url('https://www.transparenttextures.com/patterns/asfalt-dark.png')]">
         {messages.map((m, i) => (
-          <div key={i} className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-sm leading-relaxed shadow-xl ${m.role === 'ai' ? 'bg-slate-900 border border-slate-800 self-start rounded-tl-none text-slate-300 font-medium' : 'bg-blue-600 text-white self-end rounded-tr-none font-bold'}`}>
-            {m.text}
+          <div key={i} className={`flex flex-col ${m.role === 'ai' ? 'items-start' : 'items-end'}`}>
+            {m.images && m.images.length > 0 && (
+              <div className="flex gap-2 mb-2">
+                 {m.images.map((img, idx) => (
+                   <img key={idx} src={img} className="h-24 w-24 object-cover rounded-xl border-2 border-blue-600/30" alt="Upload" />
+                 ))}
+              </div>
+            )}
+            <div className={`max-w-[90%] px-5 py-3 rounded-2xl text-xs leading-relaxed shadow-xl border ${
+              m.role === 'ai' 
+                ? 'bg-slate-900 border-slate-800 rounded-tl-none text-slate-300 font-medium prose prose-invert prose-p:my-0' 
+                : 'bg-blue-600 border-blue-500 text-white rounded-tr-none font-bold'
+            }`}>
+              {m.role === 'ai' ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
+            </div>
           </div>
         ))}
+        {loading && (
+          <div className="flex gap-1.5 p-3 bg-slate-900/50 rounded-xl w-16 justify-center border border-slate-800">
+            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" />
+            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce delay-150" />
+          </div>
+        )}
       </div>
-      <div className="p-8 bg-slate-900/50 border-t border-slate-800 flex gap-4 items-center">
-        <Button variant="ghost" size="icon" className="rounded-2xl h-14 w-14 bg-slate-900 border border-slate-800 text-slate-300"><Mic size={20}/></Button>
-        <Input 
-          placeholder="Query neural reasoning..." 
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
-          className="rounded-[1.5rem] h-14 px-6 border-slate-800 bg-slate-950 outline-none text-sm font-bold text-slate-200 placeholder:text-slate-500"
-        />
-        <Button onClick={send} size="icon" className="rounded-2xl h-14 w-14 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-600/20 shrink-0"><Send size={20}/></Button>
+
+      <div className="p-6 bg-slate-900/50 border-t border-slate-800">
+        <div className="flex flex-wrap gap-2 mb-4">
+           {getPredictedQuestions(currentView).map((q, i) => (
+             <button key={i} onClick={() => send(q)} className="text-[9px] font-bold px-3 py-1.5 bg-slate-800 hover:bg-blue-600/20 hover:text-blue-400 text-slate-400 rounded-full border border-slate-700 transition-all">
+               {q}
+             </button>
+           ))}
+        </div>
+        
+        <div className="flex gap-3 items-center">
+          <input type="file" ref={fileRef} className="hidden" multiple accept="image/*" onChange={(e) => handleFiles(e.target.files)} />
+          <Button variant="ghost" size="icon" onClick={() => fileRef.current?.click()} className="rounded-xl h-11 w-11 bg-slate-900 border border-slate-800 text-slate-400">
+            <ImagePlus size={18}/>
+          </Button>
+          <div className="relative flex-1">
+            <Input 
+              placeholder="Clinical query..." 
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && send()}
+              className="rounded-xl h-11 px-4 border-slate-800 bg-slate-950 text-xs font-bold text-slate-200"
+            />
+          </div>
+          <Button onClick={() => send()} size="icon" className="rounded-xl h-11 w-11 bg-blue-600 hover:bg-blue-700">
+            <Send size={18} />
+          </Button>
+        </div>
       </div>
     </Card>
   );
