@@ -1,0 +1,9 @@
+path: C:/Users/mhyas/Desktop/rootsense/rootsense_yolo
+train: train
+val: val
+names:
+  0: Healthy
+  1: Caries
+  2: Calculus
+  3: Gingivitis
+  4: No_Tooth

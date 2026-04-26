@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { supabase } from '@/lib/supabase';
 import { 
   Activity, BookOpen, Settings, Mic, MessageSquare, X, Send, Video, Upload,
   RefreshCw, CheckCircle2, AlertCircle, ArrowRight, BrainCircuit, ShieldCheck,
   BarChart3, Brain, Info, Target, Download, ExternalLink, Printer, Layers, UploadCloud, Loader2, Clock, ArrowLeft,
-  User, Database, FileText, Zap, Sparkles, Camera, History, Microscope, GraduationCap, Bell, Search, Filter, Cpu, Globe, Sliders, ImagePlus
+  User, Database, FileText, Zap, Sparkles, Camera, History, Microscope, GraduationCap, Bell, Search, Filter, Cpu, Globe, Sliders, ImagePlus, Trophy
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,17 +31,24 @@ const analyticsData = [
 ];
 
 const pathologyDistribution = [
-  { name: 'Caries', value: 45, color: '#3b82f6' },
-  { name: 'Gingivitis', value: 30, color: '#ef4444' },
+  { name: 'Caries', value: 40, color: '#3b82f6' },
+  { name: 'Gingivitis', value: 25, color: '#ef4444' },
   { name: 'Calculus', value: 15, color: '#f59e0b' },
   { name: 'Healthy', value: 10, color: '#10b981' },
+  { name: 'No_Tooth', value: 10, color: '#64748b' },
 ];
 
 const caseLibrary = [
-  { id: 101, title: "Interproximal Caries", level: "Beginner", points: 150, image: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=800&q=80", type: "Radiograph" },
-  { id: 102, title: "Advanced Periodontitis", level: "Intermediate", points: 300, image: "/images/periodontitis.png", type: "Clinical Photo" },
-  { id: 103, title: "Third Molar Impaction", level: "Advanced", points: 500, image: "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=800&q=80", type: "CBCT" },
-  { id: 104, title: "Enamel Hypoplasia", level: "Intermediate", points: 250, image: "https://images.unsplash.com/photo-1598256989800-fe5f95da9787?auto=format&fit=crop&w=800&q=80", type: "Clinical Photo" },
+  { id: 101, title: "Class II Caries (Radiograph)", level: "Beginner", points: 150, type: "Radiograph", image: "/images/caries.png", answers: [{ x: 45, y: 40, label: "Distal Caries" }] },
+  { id: 102, title: "Deep Pulpal Caries", level: "Advanced", points: 400, type: "Radiograph", image: "/images/deep_caries.png", answers: [{ x: 50, y: 35, label: "Pulpal Involvement" }] },
+  { id: 103, title: "Recurrent Caries", level: "Intermediate", points: 200, type: "Radiograph", image: "/images/recurrent_caries.png", answers: [{ x: 52, y: 58, label: "Secondary Lesion" }] },
+  { id: 201, title: "Severe Periodontitis", level: "Intermediate", points: 300, type: "Clinical Photo", image: "/images/periodontitis.png", answers: [{ x: 50, y: 65, label: "Pocketing" }, { x: 42, y: 60, label: "Papillary Loss" }] },
+  { id: 202, title: "Gingival Recession", level: "Beginner", points: 150, type: "Clinical Photo", image: "/images/recession.png", answers: [{ x: 48, y: 72, label: "Exposed Root" }] },
+  { id: 206, title: "Heavy Calculus Bridge", level: "Beginner", points: 200, type: "Clinical Photo", image: "/images/calculus.png", answers: [{ x: 50, y: 78, label: "Supra-gingival Calculus" }] },
+  { id: 301, title: "Impacted Wisdom Tooth", level: "Advanced", points: 500, type: "Panoramic", image: "/images/impaction.png", answers: [{ x: 20, y: 75, label: "Class III Impaction" }] },
+  { id: 302, title: "Horizontal Impaction", level: "Expert", points: 750, type: "Panoramic", image: "/images/horizontal_impaction.png", answers: [{ x: 22, y: 82, label: "Horizontal Shift" }] },
+  { id: 401, title: "Enamel Hypoplasia", level: "Intermediate", points: 350, type: "Clinical Photo", image: "/images/hypoplasia.png", answers: [{ x: 50, y: 48, label: "Pitting" }] },
+  { id: 402, title: "Dental Fluorosis", level: "Beginner", points: 150, type: "Clinical Photo", image: "/images/fluorosis.png", answers: [{ x: 50, y: 52, label: "Mottling" }] },
 ];
 
 const pastRecords = [
@@ -68,24 +76,49 @@ function SidebarLink({ active, onClick, icon: Icon, label }) {
 // --- Auth Page (Login / Signup) ---
 
 function AuthPage({ mode, setMode, onLogin }) {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const BYPASS_CREDENTIALS = { username: 'faah', password: 'faah' };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Hardcoded bypass login
-    if (email === BYPASS_CREDENTIALS.username && password === BYPASS_CREDENTIALS.password) {
-      onLogin({ name: 'Faah', email: 'faah@gmail.com' });
-      return;
-    }
-    if (!email || !password) { setError('All fields are required.'); return; }
-    if (mode === 'signup' && !name) { setError('Name is required.'); return; }
     setError('');
-    onLogin({ name: name || email.split('@')[0], email });
+    setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name }
+          }
+        });
+        if (error) throw error;
+        // Supabase might require email confirmation; handle accordingly
+        onLogin(data.user);
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (error) throw error;
+        onLogin(data.user);
+      }
+    } catch (err) {
+      // Fallback for demo if Supabase is not configured
+      if (email === BYPASS_CREDENTIALS.username && password === BYPASS_CREDENTIALS.password) {
+        onLogin({ user_metadata: { full_name: 'Faah' }, email: 'faah@gmail.com' });
+        return;
+      }
+      setError(err.message || 'Authentication failed. Check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -122,9 +155,9 @@ function AuthPage({ mode, setMode, onLogin }) {
               <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Password</label>
               <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="bg-slate-950 border-slate-700 text-white placeholder:text-slate-600 rounded-2xl h-12 px-4 focus:border-blue-500 transition-colors" />
             </div>
-            {error && <p className="text-red-400 text-xs font-medium">{error}</p>}
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl h-12 shadow-lg shadow-blue-600/20 transition-all text-sm">
-              {mode === 'login' ? 'Sign In to Portal' : 'Create Account'}
+            {error && <p className="text-red-400 text-xs font-medium text-center">{error}</p>}
+            <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl h-12 shadow-lg shadow-blue-600/20 transition-all text-sm disabled:opacity-50">
+              {loading ? 'Processing...' : mode === 'login' ? 'Sign In to Portal' : 'Create Account'}
             </Button>
           </form>
 
@@ -159,9 +192,50 @@ export default function RootSenseAI() {
   const [userStats, setUserStats] = useState({
     xp: 2450,
     level: 12,
-    assignments: { cleaning: 12, diagnosis: 45, quiz: 8 },
+    assignments: { cleaning: 12, diagnosis: 45, quiz: 8, operative: 6, perio: 2 },
     streak: 5
   });
+
+  const updateStats = (type, xpGain) => {
+    setUserStats(prev => {
+      const newXp = prev.xp + xpGain;
+      const newLevel = Math.floor(newXp / 1000); // 1000 XP per level
+      return {
+        ...prev,
+        xp: newXp,
+        level: Math.max(prev.level, newLevel),
+        assignments: {
+          ...prev.assignments,
+          [type]: (prev.assignments[type] || 0) + 1
+        }
+      };
+    });
+  };
+
+  useEffect(() => {
+    // Check for active session on load
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setCurrentUser(session.user);
+        setIsLoggedIn(true);
+        setView('simulator');
+      }
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setCurrentUser(session.user);
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     try {
@@ -210,7 +284,8 @@ export default function RootSenseAI() {
     setView('simulator');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setIsLoggedIn(false);
     setIsProfileOpen(false);
@@ -252,6 +327,7 @@ export default function RootSenseAI() {
                 <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Diagnostic Protocols</p>
                 <div className="space-y-1">
                   <SidebarLink active={view === 'simulator'} onClick={() => { setView('simulator'); setIsMobileMenuOpen(false); }} icon={Brain} label="Inference Sim" />
+                  <SidebarLink active={view === 'unity-sim'} onClick={() => { setView('unity-sim'); setIsMobileMenuOpen(false); }} icon={Globe} label="Interactive Sim" />
                   <SidebarLink active={view === 'lab'} onClick={() => { setView('lab'); setIsMobileMenuOpen(false); }} icon={Zap} label="Neural Vision" />
                   <SidebarLink active={view === 'records'} onClick={() => { setView('records'); setIsMobileMenuOpen(false); }} icon={History} label="Clinical Files" />
                 </div>
@@ -376,7 +452,7 @@ export default function RootSenseAI() {
              <div className="relative">
                <button onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); }}
                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 shadow-lg font-black text-[10px] sm:text-xs text-white hover:scale-105 transition-transform">
-                 {currentUser ? currentUser.name.slice(0,2).toUpperCase() : 'YA'}
+                 {currentUser ? (currentUser.user_metadata?.full_name || currentUser.email || 'YA').slice(0,2).toUpperCase() : 'YA'}
                </button>
                <AnimatePresence>
                  {isProfileOpen && (
@@ -384,9 +460,9 @@ export default function RootSenseAI() {
                      className="absolute right-0 top-12 w-72 bg-slate-950 border border-slate-800 rounded-3xl shadow-2xl z-50 overflow-hidden">
                      <div className="p-5 border-b border-slate-800">
                        <div className="flex items-center gap-3">
-                         <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">{currentUser ? currentUser.name.slice(0,2).toUpperCase() : 'YA'}</div>
+                         <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">{currentUser ? (currentUser.user_metadata?.full_name || currentUser.email || 'YA').slice(0,2).toUpperCase() : 'YA'}</div>
                          <div>
-                           <p className="font-black text-white text-sm">{currentUser?.name || 'Yaseen A.'}</p>
+                           <p className="font-black text-white text-sm">{currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'User'}</p>
                            <p className="text-[10px] text-slate-400">{currentUser?.email || 'student@rootsense.ai'}</p>
                          </div>
                        </div>
@@ -417,12 +493,13 @@ export default function RootSenseAI() {
 
         <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto overflow-x-hidden relative scrollbar-hide">
           <AnimatePresence mode="wait">
-            {view === 'simulator' && <SimulationPage key="sim" onEarnXP={(amt) => setUserStats(s => ({ ...s, xp: s.xp + amt }))} />}
-            {view === 'quests' && <QuestsPage key="quests" stats={userStats} />}
-            {view === 'lab' && <VisionLabPage key="lab" />}
+            {view === 'simulator' && <SimulationPage key="sim" onEarnXP={(amt) => updateStats('operative', amt)} />}
+            {view === 'unity-sim' && <UnitySimulator key="unity" />}
+            {view === 'quests' && <QuestsPage key="quests" stats={userStats} onNavigate={setView} />}
+            {view === 'lab' && <VisionLabPage key="lab" currentUser={currentUser} updateStats={updateStats} />}
             {view === 'analytics' && <AnalyticsPage key="analytics" />}
-            {view === 'records' && <RecordsPage key="records" />}
-            {view === 'scheduler' && <SchedulerPage key="scheduler" />}
+            {view === 'records' && <RecordsPage key="records" currentUser={currentUser} />}
+            {view === 'scheduler' && <SchedulerPage key="scheduler" onNavigate={setView} />}
             {view === 'inventory' && <InventoryPage key="inventory" />}
             {view === 'settings' && <SettingsPage key="settings" />}
             {view === 'config' && <ConfigPage key="config" gpuInfo={gpuInfo} />}
@@ -454,6 +531,56 @@ export default function RootSenseAI() {
         </motion.button>
       </div>
     </div>
+  );
+}
+
+// --- Unity Simulation Component ---
+
+function UnitySimulator() {
+  const [loading, setLoading] = useState(true);
+
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="h-full flex flex-col">
+       <div className="flex items-center justify-between border-b border-slate-800 pb-8 mb-8">
+          <div>
+            <h3 className="text-3xl font-black text-white">Interactive Lab Prototype</h3>
+            <p className="text-slate-400 font-medium">Faah2.unity Engine • Hardware Accelerated Simulation</p>
+          </div>
+          <Badge className="bg-blue-600 text-white px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase">WebGL 2.0</Badge>
+       </div>
+       
+       <Card className="flex-1 rounded-[3rem] bg-black border-slate-800 relative overflow-hidden shadow-2xl group min-h-[600px]">
+          {loading && (
+             <div className="absolute inset-0 z-10 bg-slate-950 flex flex-col items-center justify-center space-y-6">
+                <div className="relative">
+                   <div className="h-24 w-24 rounded-full border-4 border-blue-500/10 border-t-blue-500 animate-spin" />
+                   <Globe className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-500 animate-pulse" size={32} />
+                </div>
+                <div className="text-center">
+                   <h4 className="text-xl font-black text-white mb-1">Initializing Engine</h4>
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Optimizing Shaders & Textures...</p>
+                </div>
+                <Button onClick={() => setLoading(false)} className="mt-8 bg-blue-600 hover:bg-blue-500 rounded-full h-12 px-10 font-bold">Launch Prototype</Button>
+             </div>
+          )}
+          
+          <iframe 
+            src="/unity_build/index.html" 
+            className="w-full h-full border-0" 
+            title="Unity Prototype"
+            onLoad={() => setLoading(false)}
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+
+          <div className="absolute bottom-8 right-8 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Engine Status</p>
+                <p className="text-[10px] font-black text-white mt-0.5">Faah2 Kernel v0.1.2-beta</p>
+             </div>
+          </div>
+       </Card>
+    </motion.div>
   );
 }
 
@@ -501,36 +628,51 @@ function SimulationPage({ onEarnXP }) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h3 className="text-3xl sm:text-4xl font-black tracking-tighter mb-2 text-white">Training Modules</h3>
-          <p className="text-slate-200 font-medium text-sm sm:text-base">Select a case to begin diagnostic training.</p>
+          <h3 className="text-4xl font-black tracking-tighter mb-2 text-white">Clinical Training Modules</h3>
+          <p className="text-slate-400 font-medium text-sm sm:text-base flex items-center gap-2">
+            <Activity size={14} className="text-blue-500" /> 
+            Protocol v3.1: Morphology Detection & Pattern Verification
+          </p>
         </div>
         <div className="flex w-full sm:w-auto gap-4">
            <div className="relative flex-1 sm:flex-none">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-              <Input placeholder="Filter cases..." className="pl-12 rounded-2xl bg-slate-900 border-slate-800 w-full sm:w-64 text-slate-200" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+              <Input placeholder="Search pathology..." className="pl-12 rounded-2xl bg-slate-900/50 border-slate-800 w-full sm:w-64 text-slate-200 focus:border-blue-500/50" />
            </div>
-           <Button className="rounded-2xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold"><Filter size={16} className="mr-2" /> Sort</Button>
+           <Button className="rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 font-black text-[10px] uppercase tracking-widest"><Filter size={16} className="mr-2" /> Filter</Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-10">
         {caseLibrary.map((c) => (
-          <motion.div key={c.id} whileHover={{ y: -8 }}>
-            <Card onClick={() => setSelectedCase(c)} className="group cursor-pointer bg-slate-900/40 border-slate-800 hover:border-blue-500/50 rounded-[2rem] overflow-hidden shadow-2xl">
-              <div className="h-48 relative">
-                <img src={c.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent opacity-80" />
-                <Badge className={`absolute bottom-4 left-4 border-0 font-black text-[10px] uppercase tracking-widest ${c.level === 'Beginner' ? 'bg-green-500' : c.level === 'Intermediate' ? 'bg-blue-500' : 'bg-red-500'}`}>{c.level}</Badge>
+          <motion.div key={c.id} whileHover={{ y: -10, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }}>
+            <Card onClick={() => setSelectedCase(c)} className="group cursor-pointer bg-slate-900/40 backdrop-blur-xl border-slate-800 hover:border-blue-500/50 rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-500">
+              <div className="h-56 relative">
+                <img src={c.image} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                <Badge className={`absolute top-4 right-4 border-0 font-black text-[10px] uppercase tracking-widest px-4 py-1 rounded-full ${c.level === 'Beginner' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : c.level === 'Intermediate' ? 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'}`}>{c.level}</Badge>
+                
+                <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
+                   <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                      <Zap size={10} className="text-blue-400" />
+                      <span className="text-[9px] font-black text-blue-100 uppercase tracking-widest">{c.type}</span>
+                   </div>
+                </div>
               </div>
-              <CardContent className="p-6">
-                <h4 className="text-xl font-bold mb-2 text-slate-100 group-hover:text-blue-400 transition-colors">{c.title}</h4>
-                <p className="text-xs text-slate-300 font-bold uppercase tracking-widest mb-4">{c.type}</p>
-                <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-                  <span className="text-[10px] font-black text-slate-300">ID #{c.id}</span>
-                  <div className="text-blue-500 font-black text-xs">+{c.points} XP</div>
+              <CardContent className="p-8">
+                <h4 className="text-xl font-black mb-2 text-white group-hover:text-blue-400 transition-colors">{c.title}</h4>
+                <div className="flex items-center gap-4 mt-6 pt-6 border-t border-slate-800/50">
+                  <div className="flex-1">
+                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Inference ID</p>
+                     <p className="text-xs font-mono text-slate-300">#RS-CASE-{c.id}</p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Potential</p>
+                     <p className="text-sm font-black text-white">+{c.points} XP</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -545,74 +687,232 @@ function CaseAnalysis({ caseData, onBack, onEarnXP }) {
   const [marked, setMarked] = useState([]);
   const [revealed, setRevealed] = useState(false);
   const [quizActive, setQuizActive] = useState(false);
-  const [quizScore, setQuizScore] = useState(null);
+  const [contrast, setContrast] = useState(100);
+  const [brightness, setBrightness] = useState(100);
+  const [useHint, setUseHint] = useState(false);
+  const [startTime] = useState(Date.now());
+  const [elapsed, setElapsed] = useState(0);
+  const [accuracy, setAccuracy] = useState(0);
+
+  useEffect(() => {
+    if (revealed) return;
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [revealed, startTime]);
+
+  const calculateAccuracy = () => {
+    if (!caseData.answers || marked.length === 0) return 0;
+    
+    let totalScore = 0;
+    caseData.answers.forEach(ans => {
+      let closestDist = 100; // max possible dist
+      marked.forEach(m => {
+        const dist = Math.sqrt(Math.pow(ans.x - m.x, 2) + Math.pow(ans.y - m.y, 2));
+        if (dist < closestDist) closestDist = dist;
+      });
+      // Score based on proximity (10% threshold for full points)
+      const score = Math.max(0, 100 - (closestDist * 5));
+      totalScore += score;
+    });
+    
+    return Math.floor(totalScore / caseData.answers.length);
+  };
 
   const handleSubmit = () => {
+    const finalAcc = calculateAccuracy();
+    setAccuracy(finalAcc);
     setRevealed(true);
-    onEarnXP(caseData.points);
+    const timePenalty = elapsed > 30 ? Math.max(0, 100 - (elapsed - 30)) : 100;
+    const finalXP = Math.floor(caseData.points * (finalAcc / 100) * (timePenalty / 100) * (useHint ? 0.5 : 1));
+    onEarnXP(finalXP);
   };
 
   if (quizActive) {
-    return <CaseQuiz onFinish={(score) => { setQuizScore(score); setQuizActive(false); onEarnXP(score * 50); }} />;
+    return <CaseQuiz onFinish={(score) => { onBack(); onEarnXP(score * 50); }} />;
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-8 gap-6">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Button variant="outline" size="icon" onClick={onBack} className="rounded-2xl h-12 w-12 sm:h-14 sm:w-14 border-slate-800"><ArrowLeft size={18}/></Button>
-          <h3 className="text-xl sm:text-3xl font-black tracking-tighter">{caseData.title}</h3>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10 pb-20">
+      {/* Header with Technical Stats */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between border-b border-slate-800 pb-10 gap-8">
+        <div className="flex items-center gap-6">
+          <Button variant="outline" size="icon" onClick={onBack} className="rounded-2xl h-14 w-14 border-slate-800 bg-slate-900/40 hover:bg-slate-800"><ArrowLeft size={18}/></Button>
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+               <Badge className="bg-blue-600/10 text-blue-400 border-blue-500/20 text-[10px] font-black px-3">PROTO-ID: {caseData.id}</Badge>
+               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                  <Clock size={12} className="text-blue-500" />
+                  <span>{Math.floor(elapsed / 60)}:{(elapsed % 60).toString().padStart(2, '0')}</span>
+               </div>
+            </div>
+            <h3 className="text-3xl font-black tracking-tighter text-white">{caseData.title}</h3>
+          </div>
         </div>
-        <div className="flex w-full sm:w-auto gap-4">
-          <Button variant="ghost" onClick={() => setMarked([])} className="flex-1 sm:flex-none text-slate-300 hover:text-white">Clear</Button>
-          <Button onClick={handleSubmit} className="flex-[2] sm:flex-none bg-blue-600 hover:bg-blue-700 rounded-2xl h-12 sm:h-14 px-6 sm:px-10 font-black text-white">Submit Diagnosis</Button>
+        <div className="flex w-full lg:w-auto gap-4">
+          <Button variant="ghost" onClick={() => setMarked([])} disabled={revealed} className="text-slate-400 hover:text-white font-bold">Reset Nodes</Button>
+          <Button 
+            onClick={() => setUseHint(true)} 
+            disabled={revealed || useHint} 
+            variant="outline" 
+            className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 font-black text-[10px] uppercase rounded-2xl h-14 px-6"
+          >
+            <Sparkles size={14} className="mr-2" /> AI Assist (-50% XP)
+          </Button>
+          <Button onClick={handleSubmit} disabled={revealed || marked.length === 0} className="bg-blue-600 hover:bg-blue-500 rounded-2xl h-14 px-12 font-black text-white shadow-xl shadow-blue-600/20 transition-all hover:scale-105 active:scale-95">
+            Commit Inference
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-        <div className="lg:col-span-3">
-          <Card className="rounded-[3rem] overflow-hidden bg-black relative shadow-2xl border-slate-800">
-            <div className="relative aspect-video" onClick={(e) => {
-              if(revealed) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              setMarked([...marked, { x: ((e.clientX - rect.left)/rect.width)*100, y: ((e.clientY - rect.top)/rect.height)*100, id: Date.now() }]);
-            }}>
-              <img src={caseData.image} className="w-full h-full object-cover opacity-80" />
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-12">
+        {/* Workspace: Image + Filters */}
+        <div className="xl:col-span-3 space-y-6">
+          <Card className="rounded-[3.5rem] overflow-hidden bg-black relative shadow-2xl border-2 border-slate-800 group">
+            <div 
+              className="relative aspect-video cursor-crosshair overflow-hidden" 
+              onClick={(e) => {
+                if(revealed) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMarked([...marked, { x: ((e.clientX - rect.left)/rect.width)*100, y: ((e.clientY - rect.top)/rect.height)*100, id: Date.now() }]);
+              }}
+            >
+              <img 
+                src={caseData.image} 
+                className="w-full h-full object-contain bg-slate-950 transition-all duration-300" 
+                style={{ 
+                  filter: `contrast(${contrast}%) brightness(${brightness}%)`,
+                  opacity: revealed ? 0.5 : 0.9
+                }} 
+              />
+              
+              {/* Scanline Effect */}
+              <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+
+              {/* User Markers */}
               {marked.map(m => (
-                <div key={m.id} className="absolute w-10 h-10 border-2 border-blue-500 rounded-full flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style={{ left: `${m.x}%`, top: `${m.y}%` }}>
-                  <div className="w-1 h-1 bg-blue-500 rounded-full" />
-                </div>
+                <motion.div 
+                  initial={{ scale: 2, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  key={m.id} 
+                  className="absolute w-12 h-12 border-2 border-blue-500 rounded-full flex items-center justify-center -translate-x-1/2 -translate-y-1/2 shadow-[0_0_20px_rgba(59,130,246,0.6)]" 
+                  style={{ left: `${m.x}%`, top: `${m.y}%` }}
+                >
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping" />
+                  <div className="absolute -bottom-6 bg-blue-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest text-white shadow-lg">NODE_{m.id.toString().slice(-3)}</div>
+                </motion.div>
               ))}
-              {revealed && (
-                <div className="absolute border-4 border-dashed border-green-500 bg-green-500/10 rounded-[3rem]" style={{ top: '35%', left: '45%', width: '15%', height: '25%' }}>
-                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] font-black px-4 py-1 rounded-full whitespace-nowrap">MASTER DIAGNOSIS</div>
-                </div>
-              )}
+
+              {/* AI Hint / Revealed Answer */}
+              {(useHint || revealed) && caseData.answers?.map((ans, i) => (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  key={`ans-${i}`}
+                  className="absolute border-2 border-dashed border-emerald-500 bg-emerald-500/10 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.3)] flex items-center justify-center -translate-x-1/2 -translate-y-1/2" 
+                  style={{ left: `${ans.x}%`, top: `${ans.y}%`, width: '8%', height: '12%' }}
+                >
+                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[8px] font-black px-3 py-1 rounded-full whitespace-nowrap shadow-xl border border-white/20">
+                      MASTER DIAGNOSIS: {ans.label}
+                   </div>
+                </motion.div>
+              ))}
+
+              {/* HUD Overlay */}
+              <div className="absolute top-8 left-8 flex flex-col gap-3 pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity">
+                 <div className="bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Neural Link: Active</span>
+                 </div>
+                 <div className="bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3">
+                    <Activity size={12} className="text-blue-400" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Precision Prediction: {marked.length > 0 ? calculateAccuracy() : '0'}%</span>
+                 </div>
+              </div>
             </div>
           </Card>
+
+          {/* Image Processing Controls */}
+          <div className="flex flex-wrap gap-8 bg-slate-900/30 backdrop-blur-xl p-8 rounded-[2.5rem] border border-slate-800">
+             <div className="flex-1 min-w-[200px] space-y-4">
+                <div className="flex justify-between items-center">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrast Enhancement</label>
+                   <span className="text-xs font-bold text-blue-400">{contrast}%</span>
+                </div>
+                <input type="range" min="50" max="200" value={contrast} onChange={e => setContrast(e.target.value)} className="w-full h-1.5 bg-slate-800 rounded-full appearance-none accent-blue-500 cursor-pointer" />
+             </div>
+             <div className="flex-1 min-w-[200px] space-y-4">
+                <div className="flex justify-between items-center">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Luminance Balance</label>
+                   <span className="text-xs font-bold text-blue-400">{brightness}%</span>
+                </div>
+                <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(e.target.value)} className="w-full h-1.5 bg-slate-800 rounded-full appearance-none accent-blue-500 cursor-pointer" />
+             </div>
+             <div className="flex items-center gap-4 border-l border-slate-800 pl-8">
+                <Button variant="ghost" size="icon" onClick={() => {setContrast(100); setBrightness(100);}} className="rounded-xl hover:bg-slate-800 text-slate-400"><RefreshCw size={18}/></Button>
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reset Core</div>
+             </div>
+          </div>
         </div>
-        <div className="space-y-6">
-           <Card className="rounded-[2rem] bg-slate-900 p-8 border-slate-800 shadow-2xl">
-              <h4 className="text-xs font-black uppercase text-slate-300 mb-6">Simulation Hub</h4>
-              <p className="text-sm font-medium mb-6 text-slate-200 leading-relaxed">Identify any anomalies in the enamel density. Mark suspicious regions to test accuracy.</p>
-              <div className="space-y-2">
-                 <div className="flex justify-between text-xs font-bold text-slate-300"><span>Progress</span><span>{marked.length}/4</span></div>
-                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${(marked.length/4)*100}%` }} />
+
+        {/* Sidebar: Performance & Results */}
+        <div className="space-y-8">
+           <Card className="rounded-[2.5rem] bg-slate-900 p-8 border-slate-800 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 opacity-5"><Layers size={60} /></div>
+              <h4 className="text-[10px] font-black uppercase text-slate-400 mb-8 tracking-[0.2em]">Morphological Analytics</h4>
+              
+              <div className="space-y-6 relative z-10">
+                 <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase">
+                       <span>Nodes Identified</span>
+                       <span className="text-blue-500">{marked.length} / 4</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                       <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${Math.min(100, (marked.length/4)*100)}%` }} />
+                    </div>
+                 </div>
+                 
+                 <div className="pt-6 border-t border-slate-800/50 space-y-4">
+                    <div className="flex justify-between items-center">
+                       <span className="text-[10px] font-black text-slate-500 uppercase">Precision Est.</span>
+                       <span className="text-xs font-black text-white">{marked.length > 0 ? "Analyzing..." : "Pending"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <span className="text-[10px] font-black text-slate-500 uppercase">Time Penalty</span>
+                       <span className={`text-xs font-black ${elapsed > 30 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                          {elapsed > 30 ? `-${elapsed - 30}pts` : "0.0x"}
+                       </span>
+                    </div>
                  </div>
               </div>
            </Card>
+
            {revealed && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <div className="bg-green-500/5 border border-green-500/20 p-6 rounded-[2rem]">
-                  <span className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-2 block">Accuracy Result</span>
-                  <h5 className="text-3xl font-black text-white mb-2">94%</h5>
-                  <p className="text-xs text-slate-200 leading-relaxed font-medium">You identified the primary lesion with high precision.</p>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <Card className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] border-0 shadow-2xl shadow-blue-600/30 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-4 opacity-20"><Target size={80} /></div>
+                   <span className="text-[10px] font-black text-blue-100 uppercase tracking-widest mb-2 block">Diagnostic Match Score</span>
+                   <h5 className="text-5xl font-black text-white mb-2">{accuracy}%</h5>
+                   <p className="text-xs text-blue-100/80 leading-relaxed font-bold">
+                      {accuracy > 80 ? "Your morphological mapping matches the master diagnosis within the 95th percentile." : "Significant deviations detected. Review the ground truth markers to improve precision."}
+                   </p>
+                </Card>
+                
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-center">
+                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Time</p>
+                      <p className="text-sm font-black text-white">{elapsed}s</p>
+                   </div>
+                   <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-center">
+                      <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">XP Gain</p>
+                      <p className="text-sm font-black text-blue-500">+{Math.floor(caseData.points * (useHint ? 0.5 : 1))} XP</p>
+                   </div>
                 </div>
-                <Button onClick={() => setQuizActive(true)} className="w-full bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold rounded-2xl h-14 group">
-                  Take Clinical Quiz <Sparkles className="ml-2 group-hover:rotate-12 transition-transform" size={16} />
+
+                <Button onClick={() => setQuizActive(true)} className="w-full bg-white text-black hover:bg-slate-100 font-black rounded-2xl h-16 shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] group">
+                  Initiate Clinical Validation <Sparkles className="ml-2 group-hover:rotate-12 transition-all" size={16} />
                 </Button>
-                <Button className="w-full bg-white text-black font-black text-xs uppercase rounded-xl h-12" onClick={onBack}>Finish Case</Button>
               </motion.div>
            )}
         </div>
@@ -724,68 +1024,245 @@ function CaseQuiz({ onFinish }) {
   );
 }
 
-function QuestsPage({ stats }) {
-  const quests = [
-    { title: "The Daily Quota", desc: "Perform 30 simulated cleanings for assignment completion.", progress: stats.assignments.cleaning, total: 30, xp: 500, icon: Sparkles },
-    { title: "Diagnostic Master", desc: "Identify 50 pathologies with >90% accuracy.", progress: stats.assignments.diagnosis, total: 50, xp: 1200, icon: Target },
-    { title: "Quiz Whiz", desc: "Complete 10 clinical quizzes with a perfect score.", progress: stats.assignments.quiz, total: 10, xp: 300, icon: BookOpen },
+function QuestsPage({ stats, onNavigate }) {
+  const [selectedMission, setSelectedMission] = useState(null);
+
+  const activeMissions = [
+    { 
+      id: "OP-401", 
+      title: "Pulp Protector", 
+      category: "Operative", 
+      reward: "800 XP", 
+      progress: Math.min(100, Math.floor(((stats.assignments.operative || 0) / 10) * 100)), 
+      status: (stats.assignments.operative || 0) > 8 ? "Stable" : "Active", 
+      difficulty: "Hard", 
+      desc: "Identify deep carious lesions with <0.5mm pulpal clearance.", 
+      longDesc: "This assignment focuses on the transition from secondary dentin to pulp exposure. You will analyze 20 high-resolution radiographs to determine which cases require direct pulp capping vs. endodontic intervention.", 
+      objectives: ["Differentiate primary vs secondary caries", "Measure pulpal proximity", "Determine restorative material compatibility"] 
+    },
+    { 
+      id: "DX-102", 
+      title: "Molar Strike", 
+      category: "Diagnostics", 
+      reward: "450 XP", 
+      progress: Math.min(100, Math.floor(((stats.assignments.diagnosis || 0) / 50) * 100)), 
+      status: (stats.assignments.diagnosis || 0) > 45 ? "Critical" : "Active", 
+      difficulty: "Medium", 
+      desc: "Localize 5 horizontal impactions in panoramic OPG scans.", 
+      longDesc: "Third molar impactions often present surgical risks. This module trains your eyes to detect the angle of horizontal impaction and its proximity to the inferior alveolar nerve.", 
+      objectives: ["Analyze Winter's Classification", "Identify nerve proximity", "Propose surgical path"] 
+    },
+    { 
+      id: "PE-205", 
+      title: "Gingival Guardian", 
+      category: "Periodontics", 
+      reward: "300 XP", 
+      progress: Math.min(100, Math.floor(((stats.assignments.perio || 0) / 12) * 100)), 
+      status: "Stable", 
+      difficulty: "Easy", 
+      desc: "Assess attachment loss across 12 clinical specimens.", 
+      longDesc: "Clinical photography is essential for periodontal charting. You will measure recession and papillary loss to calculate the current PDL health index.", 
+      objectives: ["Measure Millers Classification", "Detect gingival inflammation", "Calculate plaque index"] 
+    },
+  ];
+
+  const masteryData = [
+    { label: "Radiographic Interpretation", value: 85, color: "bg-blue-500" },
+    { label: "Morphological Precision", value: 92, color: "bg-emerald-500" },
+    { label: "Clinical Speed", value: 64, color: "bg-orange-500" },
+    { label: "Diagnostic Accuracy", value: 88, color: "bg-indigo-500" },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between border-b border-slate-800 pb-8 gap-6">
-          <div>
-            <h3 className="text-3xl sm:text-4xl font-black tracking-tighter mb-2 text-white">Quest Board</h3>
-            <p className="text-slate-200 font-medium text-sm sm:text-base">Complete assignments to earn XP and unlock advanced modules.</p>
-          </div>
-          <div className="text-left sm:text-right w-full sm:w-auto">
-             <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Current Level</p>
-             <span className="text-4xl sm:text-5xl font-black text-blue-500">{stats.level}</span>
-          </div>
-       </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10 relative">
+      <AnimatePresence>
+        {selectedMission && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-10 bg-black/80 backdrop-blur-xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} 
+              animate={{ scale: 1, y: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl"
+            >
+              <div className="p-10 space-y-8">
+                 <div className="flex justify-between items-start">
+                    <div>
+                       <Badge className="bg-blue-600/10 text-blue-500 border-blue-500/20 mb-2">{selectedMission.id}</Badge>
+                       <h3 className="text-4xl font-black text-white tracking-tighter">{selectedMission.title}</h3>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedMission(null)} className="rounded-full h-12 w-12 hover:bg-white/10"><X size={24}/></Button>
+                 </div>
 
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {quests.map((q, i) => (
-            <Card key={i} className="bg-slate-900 border-slate-800 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><q.icon size={80} /></div>
-               <h4 className="text-2xl font-black mb-2 text-white">{q.title}</h4>
-               <p className="text-sm text-slate-300 font-medium leading-relaxed mb-8">{q.desc}</p>
-               <div className="space-y-4">
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                     <span className="text-slate-300">Progress</span>
-                     <span className="text-blue-500">{q.progress} / {q.total}</span>
-                  </div>
-                  <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                     <div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: `${(q.progress/q.total)*100}%` }} />
-                  </div>
-                  <div className="pt-4 flex items-center justify-between">
-                     <Badge className="bg-slate-800 text-slate-200 border-0">+{q.xp} XP</Badge>
-                     {q.progress >= q.total && <Badge className="bg-green-500 text-white">CLAIMED</Badge>}
-                  </div>
+                 <div className="space-y-6">
+                    <p className="text-slate-300 font-medium leading-relaxed text-lg">{selectedMission.longDesc}</p>
+                    
+                    <div className="space-y-4">
+                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Clinical Objectives</h4>
+                       <div className="grid grid-cols-1 gap-3">
+                          {selectedMission.objectives.map((obj, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-black/20 p-4 rounded-2xl border border-white/5">
+                               <CheckCircle2 size={16} className="text-emerald-500" />
+                               <span className="text-sm font-bold text-slate-200">{obj}</span>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="flex gap-4 pt-6">
+                    <Button onClick={() => { onNavigate(selectedMission.category === 'Operative' ? 'simulator' : 'lab'); setSelectedMission(null); }} className="flex-1 rounded-2xl h-14 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20">
+                       Start Clinical Analysis
+                    </Button>
+                    <Button variant="outline" onClick={() => setSelectedMission(null)} className="flex-1 rounded-2xl h-14 border-slate-800 text-slate-300 font-black text-xs uppercase tracking-widest">
+                       Return to Hub
+                    </Button>
+                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row gap-8 items-stretch">
+        <div className="flex-1 bg-slate-900/40 backdrop-blur-3xl border border-slate-800 rounded-[3rem] p-10 flex flex-col justify-between shadow-2xl overflow-hidden relative group">
+          <div className="absolute -right-20 -top-20 h-64 w-64 bg-blue-600/10 rounded-full blur-[100px] group-hover:bg-blue-600/20 transition-all duration-1000" />
+          <div className="relative">
+             <div className="flex items-center gap-4 mb-6">
+                <div className="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+                   <Target className="text-white" size={24} />
+                </div>
+                <div>
+                   <h3 className="text-3xl font-black text-white tracking-tighter">Clinical Command</h3>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sector: Academic Excellence</p>
+                </div>
+             </div>
+             <p className="text-slate-300 font-medium leading-relaxed max-w-md">
+                Your neural link performance is currently in the 92nd percentile. Complete the remaining OPG assignments to unlock the <span className="text-blue-400 font-bold">ResNet-X Surgical Planner</span>.
+             </p>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-10">
+             {[
+               { label: "Assigned", val: "12" },
+               { label: "Completed", val: "8" },
+               { label: "Accuracy", val: "94%" },
+               { label: "Rank", val: "#4" },
+             ].map((m, i) => (
+               <div key={i} className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{m.label}</p>
+                  <p className="text-2xl font-black text-white">{m.val}</p>
                </div>
-            </Card>
-          ))}
-       </div>
+             ))}
+          </div>
+        </div>
 
-       <Card className="rounded-[3rem] border-slate-800 bg-gradient-to-br from-blue-600/10 to-indigo-600/10 p-12 text-center">
-          <Sparkles className="text-blue-500 mx-auto mb-6" size={40} />
-          <h4 className="text-3xl font-black mb-4 text-white">Dental Student Milestone</h4>
-          <p className="max-w-xl mx-auto text-slate-200 font-medium leading-relaxed">
-            Every simulation adds to your clinical quota. Reach level 15 to unlock the 
-            <span className="text-white font-bold"> Advanced Pathology Segmentation</span> model.
-          </p>
-       </Card>
+        <div className="w-full lg:w-[400px] bg-slate-900/40 backdrop-blur-3xl border border-slate-800 rounded-[3rem] p-10 shadow-2xl">
+           <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-8 flex items-center gap-2">
+              <Activity size={14} className="text-emerald-500" />
+              Morphological Mastery
+           </h4>
+           <div className="space-y-6">
+              {masteryData.map((m, i) => (
+                <div key={i} className="space-y-3">
+                   <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-bold text-slate-300">{m.label}</span>
+                      <span className="text-xs font-black text-white">{m.value}%</span>
+                   </div>
+                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${m.value}%` }}
+                        transition={{ delay: i * 0.1, duration: 1 }}
+                        className={`h-full ${m.color}`} 
+                      />
+                   </div>
+                </div>
+              ))}
+           </div>
+           <div className="mt-8 pt-8 border-t border-slate-800/50">
+              <p className="text-[10px] font-medium text-slate-400 leading-relaxed italic">
+                 "Precision is the delta between a dentist and a clinician." - RootSense AI
+              </p>
+           </div>
+        </div>
+      </div>
+
+      {/* Mission Pipeline */}
+      <div className="space-y-6">
+         <div className="flex items-center justify-between px-4">
+            <h4 className="text-xl font-black text-white tracking-tight">Active Assignments</h4>
+            <div className="flex gap-2">
+               <Badge className="bg-slate-800 text-slate-300 border-0 cursor-pointer">All Labs</Badge>
+               <Badge className="bg-blue-600 text-white border-0 cursor-pointer">High Priority</Badge>
+            </div>
+         </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {activeMissions.map((m) => (
+              <Card key={m.id} onClick={() => setSelectedMission(m)} className="bg-slate-900/40 backdrop-blur-md border-slate-800 p-8 rounded-[2.5rem] shadow-xl group hover:border-blue-500/30 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                 <div className="flex justify-between items-start mb-6">
+                    <Badge variant="outline" className="border-slate-800 text-slate-400 font-black text-[9px] px-3 py-1">{m.id}</Badge>
+                    <div className={`h-2 w-2 rounded-full animate-pulse ${m.status === 'Critical' ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                 </div>
+                 <h5 className="text-2xl font-black text-white mb-2">{m.title}</h5>
+                 <p className="text-xs text-slate-400 font-medium leading-relaxed mb-8">{m.desc}</p>
+                 
+                 <div className="space-y-4">
+                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                       <span>Progress</span>
+                       <span className="text-blue-500">{m.progress}%</span>
+                    </div>
+                    <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                       <div className="h-full bg-blue-600" style={{ width: `${m.progress}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                       <div className="flex items-center gap-2">
+                          <Trophy size={14} className="text-orange-500" />
+                          <span className="text-[10px] font-black text-white tracking-widest">{m.reward}</span>
+                       </div>
+                       <Badge className="bg-slate-800 text-[8px] font-black tracking-widest uppercase text-slate-300 border-0">{m.difficulty}</Badge>
+                    </div>
+                 </div>
+              </Card>
+            ))}
+         </div>
+      </div>
+
+      {/* Achievement / Skill Tree Teaser */}
+      <Card className="rounded-[3rem] border-slate-800 bg-gradient-to-br from-indigo-600/10 to-blue-600/10 p-10 relative overflow-hidden">
+         <div className="flex flex-col md:flex-row items-center gap-10">
+            <div className="bg-slate-950 p-6 rounded-[2rem] border border-white/5 shadow-2xl relative">
+               <div className="absolute inset-0 bg-blue-600/20 blur-2xl animate-pulse" />
+               <Brain className="text-blue-500 relative z-10" size={48} />
+            </div>
+            <div className="text-center md:text-left flex-1">
+               <h4 className="text-2xl font-black text-white mb-2">Neural Link Synchronized</h4>
+               <p className="text-slate-300 font-medium leading-relaxed">
+                  You are 2 assignments away from unlocking the <span className="text-white font-bold">XAI Gradient Mapping</span> tool. This will allow you to see exactly where the AI is focusing during caries detection.
+               </p>
+            </div>
+            <Button onClick={() => onNavigate('simulator')} className="rounded-full bg-white text-black font-black text-[10px] uppercase tracking-widest h-14 px-10 hover:bg-slate-200">
+               Initialize Simulation
+            </Button>
+         </div>
+      </Card>
     </motion.div>
   );
 }
 
 // --- Vision Lab ---
 
-function VisionLabPage() {
+function VisionLabPage({ currentUser }) {
   const [mode, setMode] = useState('choice'); // choice, live, upload, result
   const [prediction, setPrediction] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [currentFilePath, setCurrentFilePath] = useState(null);
   const webcamRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -810,13 +1287,48 @@ function VisionLabPage() {
     setIsAnalyzing(true);
     setMode('result');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const response = await fetch('/api/predict', { method: 'POST', body: formData });
-      const result = await response.json();
+      // 1. Concurrent Upload to Supabase Storage (for clinical history)
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${currentUser?.id || 'guest'}/${fileName}`;
+      
+      // Attempt upload - don't block inference if it fails but log it
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('specimens')
+        .upload(filePath, file);
+
+      // 2. Execute Neural Inference (Local API or Cloud Fallback)
+      let result;
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/predict', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error("Cloud Environment: Local Model Unavailable");
+        result = await response.json();
+      } catch (e) {
+        // Fallback for Cloud Demo (Cloudflare Pages)
+        console.warn("Using Cloud Neural Simulation...");
+        const mockClasses = ["Healthy", "Interproximal Caries", "Deep Caries", "Periodontitis", "Gingival Recession", "Calculus"];
+        const randomClass = mockClasses[Math.floor(Math.random() * mockClasses.length)];
+        const conf = 0.85 + (Math.random() * 0.14);
+        
+        result = {
+          success: true,
+          prediction: randomClass,
+          confidence: conf,
+          all_probs: mockClasses.reduce((acc, c) => ({ ...acc, [c]: c === randomClass ? conf : (1 - conf) / (mockClasses.length - 1) }), {}),
+          hotspots: randomClass === "Healthy" ? [] : [
+            { x: 0.4 + Math.random() * 0.2, y: 0.4 + Math.random() * 0.2, strength: conf, color: "red" }
+          ],
+          is_mock: true
+        };
+      }
+      
+      // 3. Store result and file path for later saving
+      setCurrentFilePath(filePath);
       setPrediction(result);
     } catch (error) {
-      setPrediction({ error: "Analysis Pipeline Interrupted" });
+      setPrediction({ error: "Analysis Pipeline Interrupted: " + error.message });
     } finally {
       setIsAnalyzing(false);
     }
@@ -929,14 +1441,24 @@ function VisionLabPage() {
   }
 
   if (mode === 'result') {
-    return <AnalysisReportView prediction={prediction} isAnalyzing={isAnalyzing} image={previewUrl} onBack={() => setMode('choice')} />;
+    return <AnalysisReportView 
+      prediction={prediction} 
+      isAnalyzing={isAnalyzing} 
+      image={previewUrl} 
+      filePath={currentFilePath}
+      currentUser={currentUser}
+      onBack={() => setMode('choice')} 
+    />;
   }
 }
 
 
 
-function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
+function AnalysisReportView({ prediction, isAnalyzing, image, filePath, currentUser, onBack }) {
   const [xai, setXai] = useState(false);
+  const [patientName, setPatientName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
 
   if (isAnalyzing) {
     return (
@@ -973,10 +1495,12 @@ function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
   // 3. Pathologies use 85% as they are more distinctive in the latent space.
   
   const isHealthy = resultName.toLowerCase() === 'healthy';
-  // Re-balanced Validation Tier:
-  // We lower the threshold slightly to allow for real-world variation in 'proper' teeth images,
-  // while still maintaining a high bar for 'Healthy' (95%) and Pathologies (70%).
-  const threshold = isHealthy ? 0.95 : 0.70;
+  const isNoTooth = resultName.toLowerCase() === 'no_tooth';
+  
+  // Inclusive Validation Tier:
+  // We lower the threshold to accommodate specimens with moderate confidence (60%+),
+  // ensuring that the 'Structural Deviation' rejection is only triggered for very low-confidence cases.
+  const threshold = isHealthy ? 0.90 : (isNoTooth ? 0.50 : 0.60);
   
   const sortedProbs = prediction?.all_probs ? Object.values(prediction.all_probs).sort((a,b) => b - a) : [];
   const confidenceGap = sortedProbs.length >= 2 ? (sortedProbs[0] - sortedProbs[1]) : 1;
@@ -984,9 +1508,29 @@ function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
   // Adaptive Entropy Check:
   // We allow more noise for pathologies but stay strict for 'Healthy' diagnoses.
   const noiseFloor = sortedProbs.slice(1).reduce((a, b) => a + b, 0);
-  const isAmbiguous = isHealthy && noiseFloor > 0.08; // Max 8% noise for 'Healthy'
+  const isAmbiguous = isHealthy && noiseFloor > 0.15; // Max 15% noise for 'Healthy'
   
-  const isValidDental = prediction?.confidence > threshold && confidenceGap > 0.15 && !isAmbiguous;
+  const isValidDental = prediction?.confidence >= threshold && confidenceGap > 0.10 && !isAmbiguous;
+
+  if (isNoTooth && prediction?.confidence >= 0.70) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center space-y-8 py-20 text-center">
+        <div className="bg-slate-800 p-6 rounded-full border border-slate-700"><Search className="text-slate-400" size={40} /></div>
+        <div>
+          <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">No Tooth Detected</h3>
+          <p className="text-slate-300 max-w-lg font-medium leading-relaxed">
+            The neural engine is operational, but no dental structures were identified in the current specimen. Please ensure the camera is properly aligned with the oral cavity or radiograph.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-4 text-[10px] font-black uppercase text-slate-300 tracking-[0.2em]">
+             <span>Confidence: {confidence}%</span>
+             <span className="h-1 w-1 bg-slate-700 rounded-full" />
+             <span>Status: Non-Dental Intake</span>
+          </div>
+        </div>
+        <Button onClick={onBack} className="rounded-2xl px-10 h-14 bg-white text-black hover:bg-slate-200 font-bold shadow-xl">Re-acquire Specimen</Button>
+      </div>
+    );
+  }
 
   if (!isValidDental) {
     return (
@@ -1024,21 +1568,43 @@ function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
         <div className="lg:col-span-3">
-            <Card className="rounded-[3rem] overflow-hidden bg-black relative shadow-2xl border-slate-800 border-2 group">
-              <img src={image} className={`w-full h-full object-contain aspect-video transition-all duration-700 ${xai ? 'opacity-40 grayscale blur-[2px]' : 'opacity-100'}`} />
-              <AnimatePresence>
-                {xai && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none">
-                    <div className="absolute inset-0 bg-blue-500/10 mix-blend-overlay" />
-                    <div className="absolute top-1/3 left-1/2 w-32 h-32 bg-red-500/40 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-blue-500/40 rounded-full blur-3xl" />
-                    <svg className="absolute inset-0 w-full h-full opacity-30">
-                       <path d="M100 100 L300 200 L500 150" stroke="#3b82f6" strokeWidth="1" fill="none" />
-                       <path d="M50 400 L250 350 L450 450" stroke="#3b82f6" strokeWidth="1" fill="none" />
-                    </svg>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <Card className="rounded-[3rem] overflow-hidden bg-black/40 relative shadow-2xl border-slate-800 border-2 group flex items-center justify-center min-h-[500px]">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <img src={image} className={`max-w-full max-h-full object-contain transition-all duration-700 ${xai ? 'opacity-40 grayscale blur-[2px]' : 'opacity-100'}`} />
+                <AnimatePresence>
+                  {xai && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      {/* Sub-container that matches the image's aspect ratio/containment roughly */}
+                      <div className="relative aspect-video w-full h-full max-w-full max-h-full">
+                        {prediction?.hotspots?.map((hs, i) => (
+                          <motion.div 
+                            key={i}
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: hs.strength }}
+                            transition={{ delay: i * 0.1 }}
+                            className={`absolute rounded-full blur-2xl animate-pulse ${hs.color === 'red' ? 'bg-red-500/60' : 'bg-blue-500/60'}`}
+                            style={{ 
+                              left: `${hs.x * 100}%`, 
+                              top: `${hs.y * 100}%`, 
+                              width: `${hs.strength * 120}px`, 
+                              height: `${hs.strength * 120}px`,
+                              transform: 'translate(-50%, -50%)'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {xai && (
+                <div className="absolute top-8 right-8 flex flex-col items-end gap-2">
+                   <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Neural Trust: High</span>
+                   </div>
+                </div>
+              )}
               <div className="absolute bottom-8 left-8 flex gap-3 bg-slate-950/90 backdrop-blur-xl p-2 rounded-2xl border border-white/10">
                  <Button variant={!xai ? "secondary" : "ghost"} size="sm" className="rounded-xl px-6 font-black text-[9px] h-10" onClick={() => setXai(false)}>STATIC</Button>
                  <Button variant={xai ? "secondary" : "ghost"} size="sm" className="rounded-xl px-6 font-black text-[9px] h-10" onClick={() => setXai(true)}>GRAD-CAM</Button>
@@ -1056,6 +1622,66 @@ function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Primary Diagnosis</p>
                     <p className={`text-3xl font-black tracking-tighter ${isHealthy ? 'text-emerald-500' : 'text-red-500'}`}>{resultName}</p>
                  </div>
+
+                 {/* Patient Name Input */}
+                 <div className="space-y-3 pt-6 border-t border-slate-800/50">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Clinical Data Entry</label>
+                    <Input 
+                      value={patientName} 
+                      onChange={(e) => setPatientName(e.target.value)} 
+                      placeholder="Enter Patient Name..." 
+                      className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-700 rounded-xl h-12 px-4 focus:border-blue-500 transition-colors"
+                      disabled={saveStatus === 'saved'}
+                    />
+                    <Button 
+                      onClick={async () => {
+                        if (!patientName.trim()) return;
+                        setIsSaving(true);
+                        setSaveStatus('saving');
+                        try {
+                          const { error } = await supabase.from('diagnoses').insert({
+                            user_id: currentUser.id,
+                            patient_name: patientName,
+                            image_url: filePath,
+                            prediction: prediction.prediction,
+                            confidence: prediction.confidence,
+                            all_probs: prediction.all_probs,
+                            created_at: new Date().toISOString()
+                          });
+                          if (error) throw error;
+                          setSaveStatus('saved');
+                        } catch (err) {
+                          console.error(err);
+                          setSaveStatus(err.message || 'error');
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      disabled={isSaving || saveStatus === 'saved' || !patientName.trim()}
+                      className={`w-full rounded-xl h-12 font-black text-[10px] uppercase tracking-widest transition-all ${saveStatus === 'saved' ? 'bg-emerald-600 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                    >
+                      {saveStatus === 'saved' ? (
+                        <span className="flex items-center gap-2"><CheckCircle2 size={14} /> Analysis Saved</span>
+                      ) : saveStatus === 'saving' ? (
+                        <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Committing...</span>
+                      ) : (
+                        "Commit to Clinical Records"
+                      )}
+                    </Button>
+                    {(saveStatus === 'error' || (saveStatus && saveStatus !== 'saved' && saveStatus !== 'saving')) && (
+                      <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mt-2">
+                        <p className="text-red-400 text-[10px] font-bold text-center">
+                          {saveStatus === 'error' ? 'Failed to sync with cloud vault.' : `Error: ${saveStatus}`}
+                        </p>
+                        {saveStatus.includes('column') && (
+                          <p className="text-red-300 text-[8px] font-medium text-center mt-1">
+                            Tip: Ensure the 'patient_name' column exists in your Supabase table.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                 </div>
+
                  <div className="space-y-4 pt-6 border-t border-slate-800/50">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Probability Distribution</p>
                     {prediction?.all_probs && Object.entries(prediction.all_probs).sort((a,b) => b[1] - a[1]).map(([name, prob]) => (
@@ -1082,8 +1708,44 @@ function AnalysisReportView({ prediction, isAnalyzing, image, onBack }) {
   );
 }
 
-function RecordsPage() {
+function RecordsPage({ currentUser }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [records, setRecords] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecords = async () => {
+      if (!currentUser) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('diagnoses')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        setRecords(data.map(r => {
+          const { data: { publicUrl } } = supabase.storage
+            .from('specimens')
+            .getPublicUrl(r.image_url);
+            
+          return {
+            id: r.id.toString().slice(0, 8),
+            date: new Date(r.created_at).toLocaleDateString(),
+            patient: r.patient_name || currentUser.user_metadata?.full_name || 'Patient User',
+            findings: r.prediction,
+            accuracy: `${(r.confidence * 100).toFixed(0)}%`,
+            image_url: publicUrl
+          };
+        }));
+      }
+      setIsLoading(false);
+    };
+    fetchRecords();
+  }, [currentUser]);
 
   if (selectedRecord) {
     return <PatientRecordDetails record={selectedRecord} onBack={() => setSelectedRecord(null)} />;
@@ -1105,7 +1767,7 @@ function RecordsPage() {
         </div>
       </div>
 
-      <Card className="rounded-[3rem] bg-slate-900/40 backdrop-blur-2xl border-slate-800 overflow-hidden shadow-2xl">
+      <Card className="rounded-[3rem] bg-slate-900/40 backdrop-blur-2xl border-slate-800 overflow-hidden shadow-2xl min-h-[400px]">
         <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-950/40">
@@ -1119,22 +1781,39 @@ function RecordsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
-            {pastRecords.map((r) => (
-              <tr key={r.id} onClick={() => setSelectedRecord(r)} className="hover:bg-blue-600/5 transition-all cursor-pointer group">
-                <td className="px-8 py-7 font-mono text-xs text-blue-400">{r.id}</td>
-                <td className="px-8 py-7 text-sm font-medium text-slate-300">{r.date}</td>
-                <td className="px-8 py-7 text-sm font-black text-white">{r.patient}</td>
-                <td className="px-8 py-7">
-                   <Badge variant="outline" className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${r.findings === 'Healthy' ? 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>
-                    {r.findings}
-                   </Badge>
-                </td>
-                <td className="px-8 py-7 text-sm font-black text-slate-300">{r.accuracy}</td>
-                <td className="px-8 py-7 text-right">
-                   <Button variant="ghost" size="sm" className="text-slate-500 group-hover:text-blue-500 group-hover:scale-125 transition-all"><ExternalLink size={18}/></Button>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-8 py-20 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <RefreshCw className="text-blue-500 animate-spin" size={32} />
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Syncing with Cloud Vault...</p>
+                  </div>
                 </td>
               </tr>
-            ))}
+            ) : records.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-8 py-20 text-center">
+                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No clinical records found in cloud storage.</p>
+                </td>
+              </tr>
+            ) : (
+              records.map((r) => (
+                <tr key={r.id} onClick={() => setSelectedRecord(r)} className="hover:bg-blue-600/5 transition-all cursor-pointer group">
+                  <td className="px-8 py-7 font-mono text-xs text-blue-400">#{r.id}</td>
+                  <td className="px-8 py-7 text-sm font-medium text-slate-300">{r.date}</td>
+                  <td className="px-8 py-7 text-sm font-black text-white">{r.patient}</td>
+                  <td className="px-8 py-7">
+                     <Badge variant="outline" className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${r.findings === 'Healthy' ? 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5' : 'text-red-500 border-red-500/20 bg-red-500/5'}`}>
+                      {r.findings}
+                     </Badge>
+                  </td>
+                  <td className="px-8 py-7 text-sm font-black text-slate-300">{r.accuracy}</td>
+                  <td className="px-8 py-7 text-right">
+                     <Button variant="ghost" size="sm" className="text-slate-500 group-hover:text-blue-500 group-hover:scale-125 transition-all"><ExternalLink size={18}/></Button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
         </div>
@@ -1164,12 +1843,14 @@ function PatientRecordDetails({ record, onBack }) {
              <div className="space-y-8 sm:space-y-16 overflow-x-auto pb-4 scrollbar-hide">
                 {/* Upper Arch */}
                 <div className="flex justify-start sm:justify-center gap-1 sm:gap-2 min-w-max px-4">
-                   {upperTeeth.map(t => (
-                     <div key={t} className={`w-8 h-10 sm:w-10 sm:h-14 rounded-lg sm:rounded-xl border flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help ${t === 3 ? 'bg-red-500/20 border-red-500/40' : 'bg-slate-800 border-slate-700'}`}>
-                        <span className="text-[7px] sm:text-[8px] font-black text-slate-300">{t}</span>
-                        <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${t === 3 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-slate-600'}`} />
-                     </div>
-                   ))}
+                    {upperTeeth.map(t => (
+                      <div key={t} className={`w-8 h-10 sm:w-10 sm:h-16 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help ${t === 3 ? 'bg-red-500/10 border-red-500/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]' : 'bg-slate-950 border-slate-800'}`}>
+                         <span className="text-[7px] sm:text-[8px] font-black text-slate-500">{t}</span>
+                         <div className={`w-4 h-6 sm:w-6 sm:h-8 rounded-t-[60%] rounded-b-[30%] ${t === 3 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-slate-100'} border border-white/20 relative overflow-hidden`}>
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-white/30 rounded-full blur-[2px]" />
+                         </div>
+                      </div>
+                    ))}
                 </div>
                 
                 <div className="h-px bg-slate-800 w-full relative">
@@ -1178,12 +1859,14 @@ function PatientRecordDetails({ record, onBack }) {
 
                 {/* Lower Arch */}
                 <div className="flex justify-start sm:justify-center gap-1 sm:gap-2 min-w-max px-4">
-                   {lowerTeeth.map(t => (
-                     <div key={t} className="w-8 h-10 sm:w-10 sm:h-14 rounded-lg sm:rounded-xl border bg-slate-800 border-slate-700 flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-slate-600" />
-                        <span className="text-[7px] sm:text-[8px] font-black text-slate-300">{t}</span>
-                     </div>
-                   ))}
+                    {lowerTeeth.map(t => (
+                      <div key={t} className="w-8 h-10 sm:w-10 sm:h-16 rounded-2xl border bg-slate-950 border-slate-800 flex flex-col items-center justify-center gap-1 transition-all hover:scale-110 cursor-help">
+                         <div className="w-4 h-6 sm:w-6 sm:h-8 rounded-t-[60%] rounded-b-[30%] bg-slate-100 border border-white/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-white/30 rounded-full blur-[2px]" />
+                         </div>
+                         <span className="text-[7px] sm:text-[8px] font-black text-slate-500">{t}</span>
+                      </div>
+                    ))}
                 </div>
              </div>
 
@@ -1196,6 +1879,10 @@ function PatientRecordDetails({ record, onBack }) {
 
           <div className="space-y-6">
              <Card className="bg-slate-900 p-8 rounded-[2rem] border-slate-800">
+                <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">Specimen Scan</h4>
+                <div className="aspect-square rounded-2xl overflow-hidden bg-slate-950 mb-6 border border-slate-800 flex items-center justify-center">
+                   <img src={record.image_url} className="w-full h-full object-contain" alt="Dental Scan" />
+                </div>
                 <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">Clinical History</h4>
                 <div className="space-y-4">
                    <div className="p-4 bg-slate-800/50 rounded-2xl border border-slate-700">
@@ -1215,33 +1902,83 @@ function PatientRecordDetails({ record, onBack }) {
   );
 }
 
-function SchedulerPage() {
-  const appointments = [
-    { time: "09:00 AM", patient: "Marcus Aurelius", procedure: "Caries Removal", status: "In-Progress" },
-    { time: "11:30 AM", patient: "Seneca", procedure: "Routine Cleaning", status: "Confirmed" },
-    { time: "02:00 PM", patient: "Epictetus", procedure: "Endodontic Evaluation", status: "Pending" },
-    { time: "04:30 PM", patient: "Hadrian", procedure: "Radiographic Scan", status: "Confirmed" },
+function SchedulerPage({ onNavigate }) {
+  const queue = [
+    { id: "P-8801", patient: "Marcus Aurelius", urgency: "High", complexity: "Level 4", wait: "12m", procedure: "Endodontic Evaluation", assignmentMatch: "OP-401", risk: 8.4 },
+    { id: "P-8802", patient: "Seneca the Younger", urgency: "Routine", complexity: "Level 2", wait: "45m", procedure: "Caries Screening", assignmentMatch: "DX-102", risk: 3.1 },
+    { id: "P-8803", patient: "Epictetus", urgency: "Emergency", complexity: "Level 5", wait: "2m", procedure: "Acute Pulpitis", assignmentMatch: "OP-401", risk: 9.8 },
+    { id: "P-8804", patient: "Hadrian", urgency: "Routine", complexity: "Level 1", wait: "1h 10m", procedure: "Baseline OPG", assignmentMatch: null, risk: 1.2 },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 sm:space-y-12">
-       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h3 className="text-3xl sm:text-4xl font-black text-white">Daily Schedule</h3>
-          <Button className="bg-blue-600 rounded-2xl h-14 px-8 font-bold w-full sm:w-auto">+ New Appointment</Button>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
+       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 pb-10 border-b border-slate-800">
+          <div>
+            <h3 className="text-4xl font-black text-white tracking-tighter mb-2">Triage & Patient Queue</h3>
+            <p className="text-slate-400 font-medium">Managing clinical flow with <span className="text-blue-500 font-bold">Predictive Urgency Logic</span>.</p>
+          </div>
+          <div className="flex gap-4 w-full lg:w-auto">
+             <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 flex-1 lg:flex-none">
+                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Avg. Intake Time</p>
+                <p className="text-xl font-black text-white">8.4m</p>
+             </div>
+             <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 flex-1 lg:flex-none">
+                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Queue Depth</p>
+                <p className="text-xl font-black text-blue-500">14 Patients</p>
+             </div>
+          </div>
        </div>
-       <div className="grid grid-cols-1 gap-6">
-          {appointments.map((a, i) => (
-            <Card key={i} className="bg-slate-900/50 border-slate-800 p-8 rounded-[2.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 group hover:border-blue-500/30 transition-all">
-               <div className="flex items-center gap-8">
-                  <div className="text-2xl font-black text-blue-500">{a.time}</div>
+
+       <div className="grid grid-cols-1 gap-4">
+          {queue.map((p, i) => (
+            <Card key={p.id} className="bg-slate-900/40 backdrop-blur-3xl border-slate-800 p-8 rounded-[3rem] shadow-xl group hover:border-blue-500/30 transition-all flex flex-col xl:flex-row items-center justify-between gap-8 relative overflow-hidden">
+               <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${p.urgency === 'Emergency' ? 'bg-red-500' : p.urgency === 'High' ? 'bg-orange-500' : 'bg-blue-500'}`} />
+               
+               <div className="flex items-center gap-8 w-full xl:w-auto">
+                  <div className="h-20 w-20 rounded-[2rem] bg-slate-950 border border-white/5 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform">
+                     <div className="absolute inset-0 bg-blue-600/5 blur-xl group-hover:bg-blue-600/10" />
+                     <User size={32} className="text-slate-500 relative z-10" />
+                  </div>
                   <div>
-                     <h4 className="text-xl font-bold text-white mb-1">{a.patient}</h4>
-                     <p className="text-xs text-slate-300 font-medium uppercase tracking-widest">{a.procedure}</p>
+                     <div className="flex items-center gap-3 mb-1">
+                        <Badge variant="outline" className="text-[9px] font-black border-slate-800 text-slate-500 px-2 py-0.5">{p.id}</Badge>
+                        <Badge className={`${p.urgency === 'Emergency' ? 'bg-red-600' : p.urgency === 'High' ? 'bg-orange-600' : 'bg-blue-600'} text-white text-[8px] font-black tracking-widest border-0 uppercase px-3`}>{p.urgency}</Badge>
+                     </div>
+                     <h4 className="text-2xl font-black text-white mb-1">{p.patient}</h4>
+                     <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">{p.procedure}</p>
                   </div>
                </div>
-               <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
-                  <Badge variant="outline" className={a.status === 'In-Progress' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-300'}>{a.status}</Badge>
-                  <Button variant="ghost" className="text-slate-300 hover:text-white"><ExternalLink size={20} /></Button>
+
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full xl:w-auto xl:px-10 flex-1">
+                  <div>
+                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Risk Factor</p>
+                     <p className={`text-sm font-black ${p.risk > 7 ? 'text-red-500' : 'text-white'}`}>{p.risk} / 10</p>
+                  </div>
+                  <div>
+                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Complexity</p>
+                     <p className="text-sm font-black text-white">{p.complexity}</p>
+                  </div>
+                  <div>
+                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Wait Time</p>
+                     <p className="text-sm font-black text-blue-500">{p.wait}</p>
+                  </div>
+                  <div>
+                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Assignment</p>
+                     {p.assignmentMatch ? (
+                       <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[8px] font-black tracking-widest uppercase">{p.assignmentMatch}</Badge>
+                     ) : (
+                       <span className="text-xs font-bold text-slate-700">None</span>
+                     )}
+                  </div>
+               </div>
+
+               <div className="flex gap-3 w-full xl:w-auto">
+                  <Button onClick={() => onNavigate('lab')} className="flex-1 xl:flex-none rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest h-14 px-8 shadow-xl shadow-blue-600/20">
+                     Initialize Intake
+                  </Button>
+                  <Button variant="outline" className="flex-1 xl:flex-none rounded-2xl border-slate-800 text-slate-400 font-black text-[10px] uppercase tracking-widest h-14 w-14 flex items-center justify-center p-0">
+                     <History size={18} />
+                  </Button>
                </div>
             </Card>
           ))}

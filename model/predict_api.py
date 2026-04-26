@@ -5,61 +5,53 @@ import os
 
 def predict(image_path):
     try:
-        # Load the model
-        model_path = os.path.join(os.path.dirname(__file__), 'runs', 'classify', 'RootSense_AI', 'prototype_v1', 'weights', 'best.pt')
+        # Load the latest model
+        model_path = os.path.join(os.path.dirname(__file__), 'runs', 'classify', 'RootSense_AI', 'intelligent_v3', 'weights', 'best.pt')
+        
+        # Fallback if the path above is not found for some reason
+        if not os.path.exists(model_path):
+            # Try to find any best.pt in the runs directory as a fallback
+            for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), 'runs')):
+                if 'best.pt' in files:
+                    model_path = os.path.join(root, 'best.pt')
+                    break
+        
         model = YOLO(model_path)
-
-        # Run prediction
-        results = model.predict(image_path, verbose=False)
+        results = model.predict(source=image_path, verbose=False)
         
-        # Neural Anatomical Signature Check:
-        # We distinguish between Clinical Dental Photos (Colorful but focused) and Faces.
-        import numpy as np
-        from PIL import Image, ImageStat
-        img = Image.open(image_path)
+        result = results[0]
+        probs = result.probs
+        names = result.names
         
-        # Analyze Saturation and Brightness
-        hsv_img = img.convert('HSV')
-        stat = ImageStat.Stat(hsv_img)
-        avg_sat = stat.mean[1] # Average Saturation
-        avg_val = stat.mean[2] # Average Brightness
+        top1_idx = probs.top1
+        top1_name = names[top1_idx]
+        top1_conf = float(probs.top1conf)
         
-        # Get results
-        probs = results[0].probs
-        name = results[0].names[probs.top1]
-        conf = float(probs.top1conf.item())
+        all_probs = {names[i]: float(probs.data[i]) for i in range(len(names))}
+        
+        # Mock hotspots for Grad-CAM simulation in frontend
+        # In a real scenario, we would use Grad-CAM to generate these
+        hotspots = []
+        if top1_name != "No_Tooth":
+            hotspots = [
+                {"x": 0.5, "y": 0.5, "strength": top1_conf, "color": "red" if top1_name != "Healthy" else "blue"}
+            ]
 
-        # Logic: 
-        # 1. Radiographs are very low saturation (< 20).
-        # 2. Clinical dental photos (teeth/mouth) have moderate saturation (40-75).
-        # 3. Faces/Portraits often have very high saturation (> 85) or specific color balances.
-        # 4. We only perform aggressive rejection if the model is suspicious of 'Healthy' 
-        #    on a high-saturation image without dental-specific luminance.
-        is_spectral_invalid = (name.lower() == 'healthy' and avg_sat > 85) or (avg_sat > 110)
-
-        if is_spectral_invalid:
-            output = {
-                "success": True,
-                "prediction": "Non-Dental Specimen",
-                "confidence": 0.0,
-                "error": "Spectral mismatch: Image characteristics (Sat: {:.1f}) are inconsistent with dental anatomy.".format(avg_sat),
-                "all_probs": {n: 0.0 for n in results[0].names.values()}
-            }
-        else:
-            # Prepare output
-            output = {
-                "success": True,
-                "prediction": name,
-                "confidence": conf,
-                "all_probs": {results[0].names[i]: float(p) for i, p in enumerate(probs.data.tolist())}
-            }
+        output = {
+            "success": True,
+            "prediction": top1_name,
+            "confidence": top1_conf,
+            "all_probs": all_probs,
+            "hotspots": hotspots
+        }
+        
         print(json.dumps(output))
-
+        
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "No image path provided"}))
-    else:
+    if len(sys.argv) > 1:
         predict(sys.argv[1])
+    else:
+        print(json.dumps({"success": False, "error": "No image path provided"}))

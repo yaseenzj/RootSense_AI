@@ -2,15 +2,15 @@ import os
 import shutil
 import random
 
-# Configuration
-root_dir = '.'  # Looking inside the 'rootsense' folder
-output_dir = 'rootsense_yolo'
+# Configuration - Absolute Paths
+root_dir = r'C:\Users\mhyas\Desktop\rootsense'
+output_dir = os.path.join(root_dir, 'rootsense_yolo')
 classes = ['Healthy', 'Caries', 'Calculus', 'Gingivitis']
-split_ratio = 0.8  # 80% for training
+split_ratio = 0.8 
 
 def prepare_data():
     if os.path.exists(output_dir):
-        shutil.rmtree(output_dir) # Clean start
+        shutil.rmtree(output_dir)
     
     for cls in classes:
         os.makedirs(os.path.join(output_dir, 'train', cls), exist_ok=True)
@@ -23,16 +23,14 @@ def prepare_data():
 
         images = [f for f in os.listdir(src_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         random.shuffle(images)
-        
         split_idx = int(len(images) * split_ratio)
         
-        # Copy files
         for i, img in enumerate(images):
             target_set = 'train' if i < split_idx else 'val'
             shutil.copy(os.path.join(src_path, img), 
                         os.path.join(output_dir, target_set, cls, img))
             
-    print(f"✅ Data split complete! Check the '{output_dir}' folder.")
+    print(f"✅ Data split complete! Path: {output_dir}")
 
 if __name__ == "__main__":
     prepare_data()
