@@ -82,7 +82,7 @@ function AuthPage({ mode, setMode, onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const BYPASS_CREDENTIALS = { username: 'faah', password: 'faah' };
+  const TEST_CREDENTIALS = { username: 'admin', password: 'password123' };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -111,8 +111,8 @@ function AuthPage({ mode, setMode, onLogin }) {
       }
     } catch (err) {
       // Fallback for demo if Supabase is not configured
-      if (email === BYPASS_CREDENTIALS.username && password === BYPASS_CREDENTIALS.password) {
-        onLogin({ user_metadata: { full_name: 'Faah' }, email: 'faah@gmail.com' });
+      if (email === TEST_CREDENTIALS.username && password === TEST_CREDENTIALS.password) {
+        onLogin({ user_metadata: { full_name: 'Dr. Guest' }, email: 'guest@rootsense.ai' });
         return;
       }
       setError(err.message || 'Authentication failed. Check your credentials.');
@@ -144,7 +144,7 @@ function AuthPage({ mode, setMode, onLogin }) {
             {mode === 'signup' && (
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Full Name</label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Dr. Yaseen Ahmed" className="bg-slate-950 border-slate-700 text-white placeholder:text-slate-600 rounded-2xl h-12 px-4 focus:border-blue-500 transition-colors" />
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Dr. Jane Doe" className="bg-slate-950 border-slate-700 text-white placeholder:text-slate-600 rounded-2xl h-12 px-4 focus:border-blue-500 transition-colors" />
               </div>
             )}
             <div className="space-y-2">
@@ -181,6 +181,7 @@ function AuthPage({ mode, setMode, onLogin }) {
 
 export default function RootSenseAI() {
   const [view, setView] = useState('auth');
+  const [hasEntered, setHasEntered] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // login | signup
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -219,6 +220,7 @@ export default function RootSenseAI() {
       if (session) {
         setCurrentUser(session.user);
         setIsLoggedIn(true);
+        setHasEntered(true);
         setView('simulator');
       }
     };
@@ -228,6 +230,7 @@ export default function RootSenseAI() {
       if (session) {
         setCurrentUser(session.user);
         setIsLoggedIn(true);
+        setHasEntered(true);
       } else {
         setIsLoggedIn(false);
         setCurrentUser(null);
@@ -281,6 +284,7 @@ export default function RootSenseAI() {
   const handleLogin = (user) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
+    setHasEntered(true);
     setView('simulator');
   };
 
@@ -289,9 +293,14 @@ export default function RootSenseAI() {
     setCurrentUser(null);
     setIsLoggedIn(false);
     setIsProfileOpen(false);
+    setHasEntered(false);
     setView('auth');
     setAuthMode('login');
   };
+
+  if (!hasEntered) {
+    return <LandingPage onEnter={() => setHasEntered(true)} />;
+  }
 
   if (!isLoggedIn) {
     return <AuthPage mode={authMode} setMode={setAuthMode} onLogin={handleLogin} />;
@@ -388,19 +397,24 @@ export default function RootSenseAI() {
               <Sliders size={20} className="text-slate-200" />
             </button>
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:block h-2 w-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]" />
-                <h2 className="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-200 truncate max-w-[150px] sm:max-w-none">
-                  {view === 'simulator' && "Diagnostic Simulator"}
-                  {view === 'quests' && "Assignment Hub"}
-                  {view === 'lab' && "Neural Vision Lab"}
-                  {view === 'analytics' && "Performance Data"}
-                  {view === 'records' && "Clinical Records"}
-                  {view === 'scheduler' && "Patient Queue"}
-                  {view === 'inventory' && "Supply Chain"}
-                  {view === 'settings' && "Preferences"}
-                  {view === 'config' && "System Architecture"}
-                </h2>
+              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('simulator')}>
+                <div className="bg-blue-600 p-1.5 rounded-lg shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-all sm:hidden lg:hidden xl:block">
+                  <BrainCircuit size={16} className="text-white" />
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="hidden sm:block h-2 w-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]" />
+                  <h2 className="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-200 truncate max-w-[150px] sm:max-w-none">
+                    {view === 'simulator' && "Diagnostic Simulator"}
+                    {view === 'quests' && "Assignment Hub"}
+                    {view === 'lab' && "Neural Vision Lab"}
+                    {view === 'analytics' && "Performance Data"}
+                    {view === 'records' && "Clinical Records"}
+                    {view === 'scheduler' && "Patient Queue"}
+                    {view === 'inventory' && "Supply Chain"}
+                    {view === 'settings' && "Preferences"}
+                    {view === 'config' && "System Architecture"}
+                  </h2>
+                </div>
               </div>
               <div className="hidden xl:flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">
                 <Cpu size={12} className="text-blue-500" />
@@ -544,7 +558,7 @@ function UnitySimulator() {
        <div className="flex items-center justify-between border-b border-slate-800 pb-8 mb-8">
           <div>
             <h3 className="text-3xl font-black text-white">Interactive Lab Prototype</h3>
-            <p className="text-slate-400 font-medium">Faah2.unity Engine • Hardware Accelerated Simulation</p>
+            <p className="text-slate-400 font-medium">RootSense Simulation Engine • Hardware Accelerated Simulation</p>
           </div>
           <Badge className="bg-blue-600 text-white px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase">WebGL 2.0</Badge>
        </div>
@@ -576,7 +590,7 @@ function UnitySimulator() {
           <div className="absolute bottom-8 right-8 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
              <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
                 <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Engine Status</p>
-                <p className="text-[10px] font-black text-white mt-0.5">Faah2 Kernel v0.1.2-beta</p>
+                <p className="text-[10px] font-black text-white mt-0.5">Simulation Kernel v0.1.2-beta</p>
              </div>
           </div>
        </Card>

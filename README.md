@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RootSense AI: Intelligent Dental Diagnostic Platform
 
-## Getting Started
+RootSense AI is a next-generation clinical intelligence platform designed to assist dental professionals and students with precise diagnostics, interactive simulations, and automated patient record management.
 
-First, run the development server:
+## 🌟 Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Neural Vision Lab**: Advanced AI-powered pathology detection (Caries, Gingivitis, Calculus) using YOLOv8 architectures.
+- **Interactive Simulation Engine**: High-fidelity WebGL-based dental simulations for clinical training.
+- **Inference Simulator**: Real-time diagnostic testing environment with pattern verification.
+- **Clinical Records Management**: Automated PDF report generation and secure patient data handling via Supabase.
+- **Performance Analytics**: Comprehensive tracking of diagnostic accuracy and efficiency tiers.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Tech Stack
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- **Frontend**: Next.js 15, Tailwind CSS, Framer Motion, Lucide React
+- **Backend/Database**: Supabase (Auth, Storage, Database)
+- **AI/ML**: Python, Ultralytics YOLOv8, PyTorch
+- **Simulation**: Unity WebGL
+- **Deployment**: Cloudflare Pages / Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Getting Started
 
-## Learn More
+### Prerequisites
+- Node.js 18+
+- Python 3.9+ (for ML modules)
+- Supabase Account
 
-To learn more about Next.js, take a look at the following resources:
+### Installation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-repo/rootsense-ai.git
+   cd rootsense-ai
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. **Install Frontend Dependencies:**
+   ```bash
+   npm install
+   ```
 
-## Deploy on Vercel
+3. **Configure Environment Variables:**
+   Copy the example environment file and fill in your Supabase credentials:
+   ```bash
+   cp .env.example .env.local
+   ```
+   *Note: Ensure `.env.local` is never committed to version control.*
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Run Development Server:**
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+5. **ML Module Setup (Optional):**
+   ```bash
+   cd model
+   pip install -r requirements.txt
+   python train.py
+   ```
+
+## 📂 Project Structure
+
+- `src/app`: Next.js App Router components and pages.
+- `src/components`: Reusable UI components.
+- `model/`: AI training scripts and pre-trained YOLO models.
+- `public/unity_build`: Compiled Unity simulation assets.
+
+## 📄 License
+
+This project is proprietary and confidential.
+
+---
+*RootSense AI · Precision Lab v2.4*

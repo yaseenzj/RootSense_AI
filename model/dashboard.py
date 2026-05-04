@@ -18,7 +18,7 @@ def assistant_voice(text):
     engine.runAndWait()
 
 # --- 2. MODEL LOADING ---
-MODEL_PATH = r'C:\Users\mhyas\Desktop\rootsense\runs\classify\RootSense_AI\intelligent_v3\weights\best.pt'
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'runs', 'classify', 'RootSense_AI', 'intelligent_v3', 'weights', 'best.pt')
 
 @st.cache_resource
 def load_rootsense_engine():

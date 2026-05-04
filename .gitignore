@@ -39,3 +39,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# ml/model specific
+/model/runs/
+/model/rootsense_yolo/
+/model/datasets/
+*.pt
+*.log

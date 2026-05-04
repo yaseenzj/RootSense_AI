@@ -5,7 +5,7 @@ from ultralytics import YOLO
 import torch
 
 # --- CONFIGURATION ---
-BASE_DIR = r'C:\Users\mhyas\Desktop\rootsense'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Ensure your No_Tooth folder has those screenshots!
 ORIGINAL_FOLDERS = ['Healthy', 'Caries', 'Calculus', 'Gingivitis', 'No_Tooth']
 YOLO_DATA_DIR = os.path.join(BASE_DIR, 'rootsense_yolo')
@@ -36,7 +36,7 @@ def setup_data():
     return True
 
 def train_model():
-    print("\n🔥 Step 2: Training Intelligent v3 Model on RTX 3050...")
+    print("\n🔥 Step 2: Training Neural Diagnostic Model...")
     device = 0 if torch.cuda.is_available() else 'cpu'
     model = YOLO('yolov8n-cls.pt')
 
@@ -46,7 +46,7 @@ def train_model():
         epochs=75,          # More epochs for deeper learning
         imgsz=448,          # 2x Resolution for tiny cavity details
         device=device,
-        batch=16,           # Optimized for 4GB VRAM
+        batch=16,           # Optimized for standard VRAM limits
         # --- Advanced Intelligence (Augmentation) ---
         degrees=20.0,       # Handle tilted phone angles
         hsv_s=0.5,          # Handle different lighting saturation
