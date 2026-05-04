@@ -8,7 +8,7 @@ export async function getDB() {
     // In development, you might want to mock the DB or use a local sqlite
     console.warn('D1 is not available in local development without wrangler dev');
   }
-  
+
   return getRequestContext().env.DB;
 }
 
